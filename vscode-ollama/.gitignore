@@ -1,0 +1,53 @@
+# Dependency directories
+node_modules/
+.pnp/
+.pnp.js
+
+# Build directory
+dist/
+out/
+build/
+lib/
+*.vsix
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Coverage directory
+coverage/
+.nyc_output/
+*.lcov
+
+# Environment & settings
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor specific files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# VS Code Extension specific
+.vscode-test/
+.history/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Miscellaneous
+.tmp/
+temp/
