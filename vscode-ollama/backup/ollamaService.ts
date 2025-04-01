@@ -1295,8 +1295,6 @@ export class OllamaService {
             timeoutSeconds?: number
         }
     ): Promise<void> {
-        // Record the start time
-        const startTime = Date.now();
         console.log(`Streaming completion with model: ${model}, prompt length: ${prompt.length} chars`);
         
         // Get configuration with defaults
@@ -1353,17 +1351,16 @@ export class OllamaService {
             onChunk(`_Thinking..._`);
             
             // Prepare the API request parameters with adjustable options
-            // Limit prompt size and token generation to avoid timeouts
             const requestParams = {
                 model,
-                prompt: prompt.length > 12000 ? prompt.substring(0, 12000) + "... [truncated due to size]" : prompt,
+                prompt,
                 stream: true,
                 options: {
-                    num_predict: Math.min(maxTokens, 2048), // Limit token generation to avoid timeouts
-                    temperature: temperature,               // Temperature setting
-                    top_k: 40,                              // Default top_k
-                    top_p: 0.9,                             // Default top_p
-                    repeat_penalty: 1.1                     // Slight penalty for repetition
+                    num_predict: maxTokens,            // Maximum tokens to generate
+                    temperature: temperature,          // Temperature setting
+                    top_k: 40,                         // Default top_k
+                    top_p: 0.9,                        // Default top_p
+                    repeat_penalty: 1.1                // Slight penalty for repetition
                 }
             };
             
@@ -1402,8 +1399,8 @@ export class OllamaService {
                 requestParams, 
                 {
                     responseType: 'stream',
-                    timeout: 60000, // 60 second axios timeout - we'll handle streaming timeout ourselves
-                    maxContentLength: 20 * 1024 * 1024, // 20MB max to prevent memory issues
+                    timeout: (timeoutSeconds + 30) * 1000, // Add 30s to axios timeout as a safety margin
+                    maxContentLength: Infinity,
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
@@ -1473,76 +1470,61 @@ export class OllamaService {
                     }
                 });
                 
-                // Wait for stream to end with more efficient timeout and hard time limit
+                // Wait for stream to end with more efficient timeout
                 await new Promise<void>((resolve, reject) => {
-                    // Hard limit on total stream time to prevent excessive timeouts
-                    const hardTimeLimit = Math.min(45000, timeoutSeconds * 1000);
-                    
-                    // Shorter timeout if no initial data is received
-                    const initialResponseTimeout = Math.min(10000, timeoutSeconds * 1000 / 3);
-                    
-                    // Set up various timeouts
-                    const timeoutHandlers = {
-                        // Main timeout for the entire request
-                        hardTimeout: setTimeout(() => {
-                            const totalTime = (Date.now() - startTime) / 1000;
-                            const msg = `Maximum streaming time exceeded (${totalTime.toFixed(1)} seconds)`;
-                            
-                            if (this.apiChannel) {
-                                this.apiChannel.appendLine(msg);
-                            }
-                            console.log('Hard timeout reached, terminating stream');
-                            
-                            // Return a graceful message instead of error
-                            onChunk(`\n\n_${msg}. The model may have been generating too much content._`);
-                            
-                            // Don't reject - just resolve to end naturally
-                            resolve();
-                        }, hardTimeLimit),
+                    // Set a timeout that uses shorter timeout if no chunks received yet
+                    const actualTimeout = hasReceivedFirstChunk ? 
+                        timeoutSeconds * 1000 : // Full timeout if we're getting data
+                        Math.min(15000, timeoutSeconds * 1000 / 2); // Shorter timeout if no data yet
                         
-                        // Timeout for initial response
-                        initialTimeout: hasReceivedFirstChunk ? null : setTimeout(() => {
-                            if (!hasReceivedFirstChunk) {
-                                const msg = `No initial response received after ${initialResponseTimeout/1000} seconds`;
-                                if (this.apiChannel) {
-                                    this.apiChannel.appendLine(msg);
-                                }
-                                reject(new Error(msg));
-                            }
-                        }, initialResponseTimeout)
-                    };
+                    const timeoutId = setTimeout(() => {
+                        const msg = hasReceivedFirstChunk ?
+                            `Stream timed out after ${timeoutSeconds} seconds` :
+                            `No initial response received after ${actualTimeout/1000} seconds`;
+                            
+                        if (this.apiChannel) {
+                            this.apiChannel.appendLine(msg);
+                        }
+                        reject(new Error(msg));
+                    }, actualTimeout);
                     
-                    // Utility function to clear all timeouts
-                    const clearAllTimeouts = () => {
-                        if (timeoutHandlers.hardTimeout) clearTimeout(timeoutHandlers.hardTimeout);
-                        if (timeoutHandlers.initialTimeout) clearTimeout(timeoutHandlers.initialTimeout);
+                    // Set up heartbeat check for stalled responses
+                    let lastActivityTime = Date.now();
+                    const heartbeatInterval = setInterval(() => {
+                        const inactiveTime = (Date.now() - lastActivityTime) / 1000;
+                        // If we've received data but then it stalls for too long
+                        if (hasReceivedFirstChunk && inactiveTime > Math.min(30, timeoutSeconds / 2)) {
+                            clearInterval(heartbeatInterval);
+                            clearTimeout(timeoutId);
+                            reject(new Error(`Stream stalled after ${inactiveTime.toFixed(1)} seconds of inactivity`));
+                        }
+                    }, 5000);
+                    
+                    response.data.on('end', () => {
+                        clearTimeout(timeoutId);
+                        clearInterval(heartbeatInterval);
                         if (responseTimeoutId) {
                             clearTimeout(responseTimeoutId);
                             responseTimeoutId = null;
                         }
-                    };
-                    
-                    // Handle stream end
-                    response.data.on('end', () => {
-                        clearAllTimeouts();
                         console.log('Stream ended normally');
                         resolve();
                     });
                     
-                    // Handle stream errors
                     response.data.on('error', (err: Error) => {
-                        clearAllTimeouts();
+                        clearTimeout(timeoutId);
+                        clearInterval(heartbeatInterval);
+                        if (responseTimeoutId) {
+                            clearTimeout(responseTimeoutId);
+                            responseTimeoutId = null;
+                        }
                         console.error('Stream error during wait:', err);
                         reject(err);
                     });
                     
-                    // Update activity status on data
+                    // Update activity time when data chunks received
                     response.data.on('data', () => {
-                        // If this is the first chunk, clear the initial timeout
-                        if (!hasReceivedFirstChunk && timeoutHandlers.initialTimeout) {
-                            clearTimeout(timeoutHandlers.initialTimeout);
-                            timeoutHandlers.initialTimeout = null;
-                        }
+                        lastActivityTime = Date.now();
                     });
                 });
                 

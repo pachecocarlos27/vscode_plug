@@ -6,6 +6,7 @@
   "publisher": "OllamaExtension",
   "private": true,
   "license": "MIT",
+  "icon": "icons/icon-128.png",
   "engines": {
     "vscode": "^1.60.0"
   },
@@ -16,11 +17,22 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onCommand:vscode-ollama.runModel",
+    "onCommand:vscode-ollama.listModels",
+    "onCommand:vscode-ollama.pullModel",
+    "onCommand:vscode-ollama.checkInstallation",
+    "onCommand:vscode-ollama.explainCode",
+    "onCommand:vscode-ollama.improveCode",
+    "onCommand:vscode-ollama.generateDocumentation",
+    "onCommand:vscode-ollama.debug"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "vscode-ollama.debug",
+        "title": "Ollama: Debug Extension"
+      },
       {
         "command": "vscode-ollama.runModel",
         "title": "Ollama: Run Model"
@@ -48,6 +60,10 @@
       {
         "command": "vscode-ollama.generateDocumentation",
         "title": "Ollama: Generate Documentation for Selection"
+      },
+      {
+        "command": "vscode-ollama.cancelRequest",
+        "title": "Ollama: Cancel Current Request"
       }
     ],
     "menus": {
@@ -55,17 +71,17 @@
         {
           "when": "editorHasSelection",
           "command": "vscode-ollama.explainCode",
-          "group": "ollama"
+          "group": "1_ollama@1"
         },
         {
           "when": "editorHasSelection",
           "command": "vscode-ollama.improveCode",
-          "group": "ollama"
+          "group": "1_ollama@2"
         },
         {
           "when": "editorHasSelection",
           "command": "vscode-ollama.generateDocumentation",
-          "group": "ollama"
+          "group": "1_ollama@3"
         }
       ]
     },
@@ -94,12 +110,27 @@
         },
         "ollama.filePatterns": {
           "type": "array",
-          "default": ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.py", "**/*.html", "**/*.css", "**/*.json", "**/README.md"],
+          "default": [
+            "**/*.js",
+            "**/*.ts",
+            "**/*.jsx",
+            "**/*.tsx",
+            "**/*.py",
+            "**/*.html",
+            "**/*.css",
+            "**/*.json",
+            "**/README.md"
+          ],
           "description": "File patterns to include in project context"
         },
         "ollama.excludePatterns": {
           "type": "array",
-          "default": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**"],
+          "default": [
+            "**/node_modules/**",
+            "**/dist/**",
+            "**/build/**",
+            "**/.git/**"
+          ],
           "description": "File patterns to exclude from project context"
         },
         "ollama.maxResponseTokens": {
@@ -121,6 +152,30 @@
           "type": "boolean",
           "default": true,
           "description": "Enable code action buttons (copy, apply) in responses"
+        },
+        "ollama.statusBarPolling": {
+          "type": "boolean",
+          "default": true,
+          "description": "Periodically check and update Ollama status in the status bar"
+        },
+        "ollama.forceRecheck": {
+          "type": "boolean",
+          "default": false,
+          "description": "Force recheck of Ollama status even if cached (for troubleshooting)"
+        },
+        "ollama.temperature": {
+          "type": "number",
+          "default": 0.7,
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Temperature setting for model generation (0.0-2.0, lower = more deterministic)"
+        },
+        "ollama.requestTimeout": {
+          "type": "number",
+          "default": 90,
+          "minimum": 15,
+          "maximum": 300,
+          "description": "Timeout in seconds for requests to the Ollama server"
         }
       }
     }
@@ -139,6 +194,8 @@
     "@types/vscode": "^1.60.0",
     "@typescript-eslint/eslint-plugin": "^5.30.0",
     "@typescript-eslint/parser": "^5.30.0",
+    "canvas": "^3.1.0",
+    "copy-webpack-plugin": "^13.0.0",
     "eslint": "^8.13.0",
     "glob": "^7.1.6",
     "terser-webpack-plugin": "^5.3.14",

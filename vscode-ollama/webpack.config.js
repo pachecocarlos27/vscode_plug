@@ -4,6 +4,7 @@
 const path = require('path');
 const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
+const CopyPlugin = require('copy-webpack-plugin');
 
 /**@type {import('webpack').Configuration}*/
 const config = {
@@ -36,7 +37,7 @@ const config = {
   },
   resolve: {
     extensions: ['.ts', '.js'],
-    mainFields: ['browser', 'module', 'main']
+    mainFields: ['main', 'module'] // Remove 'browser' to prevent browser modules from being used
   },
   module: {
     rules: [
@@ -71,6 +72,15 @@ const config = {
     new webpack.IgnorePlugin({
       resourceRegExp: /^\.\/locale$/,
       contextRegExp: /moment$/,
+    }),
+    // Copy JavaScript files and icons to the dist folder
+    new CopyPlugin({
+      patterns: [
+        { from: 'src/markdownParser.js', to: 'markdownParser.js' },
+        { from: 'src/ollamaClient.js', to: 'ollamaClient.js' },
+        { from: 'icons', to: '../icons' },
+        { from: 'logo.png', to: '../logo.png' }
+      ]
     })
   ],
   performance: {
