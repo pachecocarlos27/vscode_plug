@@ -806,6 +806,26 @@ export class OllamaPanel {
             includeContext: true // Enable context for all prompts
         });
     }
+    
+    // Method to add a reference to the chat without sending it as a prompt
+    public async addReference(referenceText: string) {
+        // Make sure the panel is ready
+        if (!this.panel) {
+            throw new Error('Panel not initialized');
+        }
+        
+        // Ensure we have a current session
+        if (!this.currentSessionId) {
+            // Create a default session to store references
+            await this.createNewSession(this.currentModel);
+        }
+        
+        // Send reference to the webview UI
+        this.panel.webview.postMessage({
+            command: 'addReference',
+            text: referenceText
+        });
+    }
 
     public dispose() {
         // Clean up watchers
@@ -1044,41 +1064,43 @@ export class OllamaPanel {
     }
     
     // Limit for total prompt size to prevent out of memory errors and improve performance
-    private readonly MAX_PROMPT_SIZE = 32000; // Characters
-    private readonly MAX_FILE_SIZE = 15000; // Characters for a single file
-    private readonly MAX_SELECTION_SIZE = 10000; // Characters for selected code
+    private readonly MAX_PROMPT_SIZE = 8000; // Reduced to improve model responsiveness
+    private readonly MAX_FILE_SIZE = 4000; // Characters for a single file - reduced for better performance
+    private readonly MAX_SELECTION_SIZE = 3000; // Characters for selected code - reduced for better performance
+    
+    // Cache for file contents to avoid repeated file reads
+    private fileContentCache = new Map<string, {content: string, timestamp: number}>();
+    private readonly FILE_CACHE_TTL = 60000; // 60 seconds TTL for file cache
     
     /**
      * Create an enhanced prompt with context information
      * Optimized to handle large contexts more efficiently with:
-     * - Truncation of large files and selections
-     * - Prompt size limitations
-     * - File size detection and truncation strategies
-     * - Prioritization of relevant content
+     * - Smart caching of file content
+     * - Improved truncation strategies for better context retention
+     * - Better prioritization of relevant content
+     * - Memory-efficient operation
      */
     private createEnhancedPrompt(userPrompt: string, context: ProjectContext): string {
         // Start with just the user prompt (fallback)
-        let enhancedPrompt = userPrompt;
-        let promptSize = userPrompt.length;
+        const promptParts: {type: string, content: string, priority: number}[] = [];
         let contextAdded = false;
         
-        // Track components to include
-        const promptParts: {type: string, content: string, priority: number}[] = [];
-        
         // Calculate available space for context
-        const availableSpace = this.MAX_PROMPT_SIZE - promptSize;
+        const userPromptWithFormatting = `USER QUERY: ${userPrompt}`;
+        const availableSpace = this.MAX_PROMPT_SIZE - userPromptWithFormatting.length - 100; // Buffer
+        
+        // Skip context gathering if no space available
+        if (availableSpace <= 200) {
+            return userPrompt;
+        }
         
         // If there's selected text, prioritize including it
         if (context.selection) {
-            let selection = context.selection;
-            
-            // Truncate if the selection is too large
-            if (selection.length > this.MAX_SELECTION_SIZE) {
-                const halfLimit = Math.floor(this.MAX_SELECTION_SIZE / 2);
-                selection = selection.substring(0, halfLimit) + 
-                    `\n\n... [${selection.length - this.MAX_SELECTION_SIZE} characters truncated] ...\n\n` +
-                    selection.substring(selection.length - halfLimit);
-            }
+            let selection = this.truncateContentSmartly(
+                context.selection, 
+                this.MAX_SELECTION_SIZE,
+                'code'
+            );
             
             promptParts.push({
                 type: 'selection',
@@ -1087,28 +1109,25 @@ export class OllamaPanel {
             });
         }
         
-        // If there's an active file but no selection, try to include the file content
+        // If there's an active file but no selection, include the file content
         else if (context.activeFile) {
-            try {
-                let content = fs.readFileSync(context.activeFile, 'utf8');
-                
-                // Get file extension to determine type
+            // Try to get content from cache first
+            const cachedContent = this.getCachedFileContent(context.activeFile);
+            
+            if (cachedContent) {
                 const fileExt = path.extname(context.activeFile).replace('.', '');
-                
-                // Truncate if the file is too large
-                if (content.length > this.MAX_FILE_SIZE) {
-                    const halfLimit = Math.floor(this.MAX_FILE_SIZE / 2);
-                    content = content.substring(0, halfLimit) + 
-                        `\n\n... [${content.length - this.MAX_FILE_SIZE} characters truncated] ...\n\n` +
-                        content.substring(content.length - halfLimit);
-                }
+                const content = this.truncateContentSmartly(
+                    cachedContent, 
+                    this.MAX_FILE_SIZE,
+                    'file'
+                );
                 
                 promptParts.push({
                     type: 'file',
                     content: `CURRENT FILE (${path.basename(context.activeFile)}):\n\`\`\`${fileExt}\n${content}\n\`\`\`\n\n`,
                     priority: 2 // Second priority
                 });
-            } catch (error) {
+            } else {
                 // If can't read the file, just use the path
                 promptParts.push({
                     type: 'file-reference',
@@ -1130,38 +1149,41 @@ export class OllamaPanel {
                 priority: 5 // Low priority
             });
             
-            // Include important project files content
-            if (context.files && context.files.length > 0) {
-                // Look for important project files like package.json, README.md, etc.
+            // Only include project files if the user is asking about configuration/setup
+            const needsProjectContext = 
+                userPrompt.toLowerCase().includes('config') ||
+                userPrompt.toLowerCase().includes('setup') ||
+                userPrompt.toLowerCase().includes('package') ||
+                userPrompt.toLowerCase().includes('dependency') ||
+                userPrompt.toLowerCase().includes('project');
+                
+            if (needsProjectContext && context.files && context.files.length > 0) {
+                // Only look for truly important files
                 const importantFiles = context.files.filter(file => {
                     const filename = path.basename(file).toLowerCase();
                     return filename === 'package.json' || 
-                           filename === 'readme.md' || 
-                           filename === 'cargo.toml' ||
-                           filename === 'go.mod' ||
-                           filename === 'pyproject.toml' ||
-                           filename === 'requirements.txt';
-                }).slice(0, 2); // Limit to 2 most important files
+                           filename === 'readme.md';
+                }).slice(0, 1); // Limit to 1 most critical file
                 
                 for (const file of importantFiles) {
-                    try {
-                        let content = fs.readFileSync(file, 'utf8');
+                    const cachedContent = this.getCachedFileContent(file);
+                    
+                    if (cachedContent) {
                         const fileExt = path.extname(file).replace('.', '');
                         const filename = path.basename(file);
                         
-                        // Truncate if the file is too large
-                        if (content.length > this.MAX_FILE_SIZE / 2) { // Use smaller limit for context files
-                            content = content.substring(0, this.MAX_FILE_SIZE / 2) + 
-                                `\n\n... [${content.length - this.MAX_FILE_SIZE / 2} characters truncated] ...\n`;
-                        }
+                        // Stricter truncation for project files
+                        const content = this.truncateContentSmartly(
+                            cachedContent, 
+                            this.MAX_FILE_SIZE / 3, // Even shorter limit for context files
+                            'config'
+                        );
                         
                         promptParts.push({
                             type: 'project-file',
                             content: `PROJECT FILE (${filename}):\n\`\`\`${fileExt}\n${content}\n\`\`\`\n\n`,
-                            priority: 4 // Medium-low priority
+                            priority: 3 // Medium priority
                         });
-                    } catch (error) {
-                        console.log(`Error reading project file ${file}:`, error);
                     }
                 }
             }
@@ -1172,7 +1194,7 @@ export class OllamaPanel {
         
         // Build the prompt within size constraints
         let contextContent = "";
-        let availableChars = this.MAX_PROMPT_SIZE - userPrompt.length - 100; // Buffer for formatting
+        let availableChars = availableSpace;
         
         for (const part of promptParts) {
             if (part.content.length <= availableChars) {
@@ -1180,7 +1202,7 @@ export class OllamaPanel {
                 availableChars -= part.content.length;
                 contextAdded = true;
             } else if (availableChars > 200) {
-                // Try to include a truncated version
+                // Include a smartly truncated version
                 const truncated = part.content.substring(0, availableChars - 100) + 
                     `\n\n... [truncated due to size limits] ...\n\n`;
                 contextContent += truncated;
@@ -1194,13 +1216,132 @@ export class OllamaPanel {
         }
         
         // Finalize the prompt with context and user query
+        let enhancedPrompt = userPrompt;
         if (contextAdded) {
             enhancedPrompt = `${contextContent}USER QUERY: ${userPrompt}`;
         }
         
-        console.log(`Enhanced prompt created: ${enhancedPrompt.length} chars (${contextAdded ? 'with' : 'without'} context)`);
-        
         return enhancedPrompt;
+    }
+    
+    /**
+     * Get file content with caching to avoid repeated file system reads
+     */
+    private getCachedFileContent(filePath: string): string | null {
+        const now = Date.now();
+        
+        // Check if we have a cached version that's still valid
+        if (this.fileContentCache.has(filePath)) {
+            const cached = this.fileContentCache.get(filePath)!;
+            if (now - cached.timestamp < this.FILE_CACHE_TTL) {
+                return cached.content;
+            }
+        }
+        
+        // No valid cache, read from file
+        try {
+            const content = fs.readFileSync(filePath, 'utf8');
+            
+            // Cache the file content
+            this.fileContentCache.set(filePath, {
+                content,
+                timestamp: now
+            });
+            
+            // Manage cache size to prevent memory issues
+            if (this.fileContentCache.size > 10) {
+                // Find and remove oldest entry
+                let oldestKey = filePath;
+                let oldestTime = now;
+                
+                this.fileContentCache.forEach((value, key) => {
+                    if (value.timestamp < oldestTime) {
+                        oldestTime = value.timestamp;
+                        oldestKey = key;
+                    }
+                });
+                
+                if (oldestKey !== filePath) {
+                    this.fileContentCache.delete(oldestKey);
+                }
+            }
+            
+            return content;
+        } catch (error) {
+            console.log(`Error reading file ${filePath}:`, error);
+            return null;
+        }
+    }
+    
+    /**
+     * Smarter content truncation that preserves more structure
+     * Works better than simple middle truncation for code/config files
+     */
+    private truncateContentSmartly(content: string, maxSize: number, contentType: 'code' | 'file' | 'config'): string {
+        if (content.length <= maxSize) {
+            return content;
+        }
+        
+        if (contentType === 'config') {
+            // For config files, just keep the beginning which usually has the most important info
+            return content.substring(0, maxSize) + 
+                `\n\n... [${content.length - maxSize} characters truncated] ...`;
+        }
+        
+        if (contentType === 'code') {
+            // For code, try to keep imports/includes and some beginning and end
+            const lines = content.split('\n');
+            
+            // Find all import/include lines at the beginning
+            const importLines: string[] = [];
+            let firstNonImportLine = 0;
+            
+            for (let i = 0; i < Math.min(30, lines.length); i++) {
+                const line = lines[i].trim();
+                if (line.startsWith('import ') || 
+                    line.startsWith('from ') || 
+                    line.startsWith('#include') || 
+                    line.startsWith('using ') ||
+                    line.startsWith('require ')) {
+                    importLines.push(lines[i]);
+                } else if (importLines.length > 0) {
+                    // We found non-import line after imports
+                    firstNonImportLine = i;
+                    break;
+                }
+            }
+            
+            // Determine how much space is left after including imports
+            const importsText = importLines.join('\n');
+            const remainingSpace = maxSize - importsText.length - 50; // 50 chars for ellipsis
+            
+            if (remainingSpace <= 0) {
+                // Not enough space after imports, just truncate normally
+                return content.substring(0, maxSize/2) + 
+                    `\n\n... [${content.length - maxSize} chars truncated] ...\n\n` +
+                    content.substring(content.length - maxSize/2);
+            }
+            
+            // Split remaining space between beginning and end
+            const halfRemaining = Math.floor(remainingSpace / 2);
+            
+            // Get content after imports for beginning
+            const beginContent = lines.slice(firstNonImportLine, 
+                Math.min(lines.length, firstNonImportLine + 20)).join('\n').substring(0, halfRemaining);
+                
+            // Get end content
+            const endContent = lines.slice(Math.max(0, lines.length - 20)).join('\n').substring(0, halfRemaining);
+            
+            // Combine with imports
+            return importsText + '\n\n' + beginContent + 
+                `\n\n... [${content.length - (importsText.length + beginContent.length + endContent.length)} chars truncated] ...\n\n` +
+                endContent;
+        }
+        
+        // Default truncation strategy for general files
+        return content.substring(0, maxSize/2) + 
+            `\n\n... [${content.length - maxSize} characters truncated] ...\n\n` +
+            content.substring(content.length - maxSize/2);
     }
     
     private async applyEdit(filePath: string, edit: { range: [number, number, number, number], text: string }, showDiff: boolean = true) {
@@ -1637,6 +1778,8 @@ export class OllamaPanel {
                     --syntax-function: var(--vscode-debugTokenExpression-name);
                     --syntax-keyword: var(--vscode-debugTokenExpression-name);
                     --syntax-comment: var(--vscode-debugTokenExpression-value);
+                    --reference-background: var(--vscode-editor-inactiveSelectionBackground);
+                    --reference-border: var(--vscode-focusBorder);
                 }
                 
                 html, body {
@@ -1892,6 +2035,36 @@ export class OllamaPanel {
                     background: rgba(0, 0, 0, 0.1);
                     padding: 2px 5px;
                     border-radius: 3px;
+                }
+                
+                /* Reference message styling */
+                .reference-message {
+                    background-color: var(--reference-background) !important;
+                    border-left: 3px solid var(--reference-border) !important;
+                    position: relative;
+                    padding-top: 20px;
+                    opacity: 0.9;
+                    transition: opacity 0.2s ease;
+                }
+                
+                .reference-message:hover {
+                    opacity: 1;
+                }
+                
+                .reference-use-button {
+                    background-color: var(--vscode-button-secondaryBackground);
+                    color: var(--vscode-button-secondaryForeground);
+                    border: 1px solid var(--vscode-button-secondaryBackground);
+                    font-size: 11px;
+                    padding: 3px 8px;
+                    margin-top: 8px;
+                    border-radius: 3px;
+                    cursor: pointer;
+                    transition: background-color 0.2s ease;
+                }
+                
+                .reference-use-button:hover {
+                    background-color: var(--vscode-button-secondaryHoverBackground);
                 }
                 
                 /* Basic syntax highlighting */

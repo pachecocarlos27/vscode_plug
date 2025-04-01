@@ -861,6 +861,86 @@ window.addEventListener('message', event => {
                 }
             }, 100);
             break;
+            
+        case 'addReference':
+            // Create a special reference message
+            const referenceElement = document.createElement('div');
+            referenceElement.className = 'message bot-message reference-message';
+            referenceElement.style.backgroundColor = 'var(--reference-background)';
+            referenceElement.style.borderLeft = '3px solid var(--reference-border)';
+            
+            // Format reference with markdown
+            try {
+                referenceElement.innerHTML = parseMarkdown(message.text);
+                referenceElement.classList.add('markdown-content');
+                
+                // Add syntax highlighting to code blocks if any
+                const codeBlocks = referenceElement.querySelectorAll('pre code');
+                if (codeBlocks.length > 0) {
+                    highlightCodeBlocks(codeBlocks);
+                    
+                    // Add copy button to code blocks
+                    addCodeBlockActionButtons(referenceElement);
+                }
+                
+                // Add a small label to indicate this is a reference
+                const referenceLabel = document.createElement('div');
+                referenceLabel.style.fontSize = '10px';
+                referenceLabel.style.textTransform = 'uppercase';
+                referenceLabel.style.opacity = '0.7';
+                referenceLabel.style.marginBottom = '4px';
+                referenceLabel.style.fontWeight = 'bold';
+                referenceLabel.textContent = 'Reference';
+                
+                // Insert the label at the beginning
+                referenceElement.insertBefore(referenceLabel, referenceElement.firstChild);
+                
+                // Add option to use this reference in the next prompt
+                const useButton = document.createElement('button');
+                useButton.className = 'reference-use-button';
+                useButton.style.fontSize = '11px';
+                useButton.style.padding = '3px 8px';
+                useButton.style.marginTop = '8px';
+                useButton.textContent = 'Use in Prompt';
+                useButton.addEventListener('click', () => {
+                    // Get current text in prompt input
+                    const currentText = promptInput.value;
+                    
+                    // Extract just the reference content (from third line to the end)
+                    const lines = message.text.split('\n');
+                    const referenceContent = lines.slice(1).join('\n');
+                    
+                    // Add to prompt with formatting
+                    if (currentText && currentText.trim()) {
+                        promptInput.value = currentText + '\n\nReference:\n' + referenceContent;
+                    } else {
+                        promptInput.value = 'Please analyze this code:\n\n' + referenceContent;
+                    }
+                    
+                    // Resize and focus
+                    autoResizeTextarea();
+                    promptInput.focus();
+                    
+                    // Scroll to the input
+                    promptInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+                
+                // Add the use button
+                referenceElement.appendChild(useButton);
+                
+            } catch (e) {
+                console.error('Error formatting reference:', e);
+                referenceElement.textContent = message.text;
+            }
+            
+            // Add to the chat container
+            chatContainer.appendChild(referenceElement);
+            
+            // Scroll to show the reference
+            setTimeout(() => {
+                smoothScrollToBottom();
+            }, 100);
+            break;
     }
 });
 

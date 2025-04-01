@@ -44,6 +44,14 @@ export class OllamaService {
             
             // Log system info
             this.logSystemInfo();
+            
+            // Log auto-start setting
+            const autoStartEnabled = vscode.workspace.getConfiguration('ollama').get('autoStartServer', true);
+            this.serviceChannel.appendLine(`Auto-start server configuration: ${autoStartEnabled ? 'enabled' : 'disabled'}`);
+            this.apiChannel.appendLine(`Auto-start server configuration: ${autoStartEnabled ? 'enabled' : 'disabled'}`);
+            
+            // Initial auto-start check will be performed when checkOllamaInstalled is called
+            this.serviceChannel.appendLine('Auto-start check will be performed when extension activates');
         } catch (error) {
             console.error('Error initializing OllamaService:', error);
             // Log to both channels
@@ -558,7 +566,20 @@ export class OllamaService {
     private async startOllamaProcess(): Promise<boolean> {
         try {
             const platform = os.platform();
-            console.log(`Starting Ollama on ${platform}`);
+            console.log(`🚀 Auto-starting Ollama on ${platform}`);
+            
+            // Log to output channels
+            if (this.serviceChannel) {
+                this.serviceChannel.appendLine(`\n🚀 AUTO-STARTING OLLAMA SERVER on ${platform}`);
+                this.serviceChannel.appendLine(`Time: ${new Date().toISOString()}`);
+                this.serviceChannel.appendLine(`Auto-start setting: ${vscode.workspace.getConfiguration('ollama').get('autoStartServer', true)}`);
+                this.serviceChannel.show(true); // Show with focus to make sure user sees this
+            }
+            
+            if (this.apiChannel) {
+                this.apiChannel.appendLine(`\n🚀 Auto-starting Ollama API server on ${platform}`);
+                this.apiChannel.appendLine(`Time: ${new Date().toISOString()}`);
+            }
             
             let ollamaProcess: child_process.ChildProcess | null = null;
             
@@ -566,6 +587,11 @@ export class OllamaService {
                 // Start Ollama on Windows
                 const ollamaPath = path.join(process.env['ProgramFiles'] || 'C:\\Program Files', 'Ollama', 'ollama.exe');
                 console.log(`Starting Ollama from: ${ollamaPath}`);
+                
+                if (this.serviceChannel) {
+                    this.serviceChannel.appendLine(`Starting Ollama from: ${ollamaPath}`);
+                    this.serviceChannel.appendLine(`Command: ${ollamaPath} serve`);
+                }
                 
                 // Create a more detailed spawn with logging
                 ollamaProcess = child_process.spawn(ollamaPath, ['serve'], {
@@ -580,31 +606,52 @@ export class OllamaService {
                 // Log stdout and stderr for debugging
                 if (ollamaProcess.stdout) {
                     ollamaProcess.stdout.on('data', (data) => {
-                        console.log(`Ollama output: ${data.toString().trim()}`);
+                        const output = data.toString().trim();
+                        console.log(`Ollama output: ${output}`);
+                        if (this.serviceChannel) {
+                            this.serviceChannel.appendLine(`[STDOUT] ${output}`);
+                        }
                     });
                 }
                 
                 if (ollamaProcess.stderr) {
                     ollamaProcess.stderr.on('data', (data) => {
-                        console.error(`Ollama error: ${data.toString().trim()}`);
+                        const error = data.toString().trim();
+                        console.error(`Ollama error: ${error}`);
+                        if (this.serviceChannel) {
+                            this.serviceChannel.appendLine(`[STDERR] ${error}`);
+                        }
                     });
                 }
                 
                 // Log process events
                 ollamaProcess.on('error', (err) => {
                     console.error(`Failed to start Ollama process: ${err.message}`);
+                    if (this.serviceChannel) {
+                        this.serviceChannel.appendLine(`❌ ERROR: Failed to start Ollama process: ${err.message}`);
+                    }
                 });
                 
                 ollamaProcess.on('exit', (code, signal) => {
                     if (code !== null) {
                         console.log(`Ollama process exited with code ${code}`);
+                        if (this.serviceChannel) {
+                            this.serviceChannel.appendLine(`⚠️ Ollama process exited with code ${code}`);
+                        }
                     } else if (signal !== null) {
                         console.log(`Ollama process was killed with signal ${signal}`);
+                        if (this.serviceChannel) {
+                            this.serviceChannel.appendLine(`⚠️ Ollama process was killed with signal ${signal}`);
+                        }
                     }
                 });
             } else {
                 // Start Ollama on macOS or Linux
                 console.log('Starting Ollama using "ollama serve"');
+                
+                if (this.serviceChannel) {
+                    this.serviceChannel.appendLine(`Starting Ollama using terminal command: ollama serve`);
+                }
                 
                 // Create a more detailed spawn with logging
                 ollamaProcess = child_process.spawn('ollama', ['serve'], {
@@ -618,26 +665,43 @@ export class OllamaService {
                 // Log stdout and stderr for debugging
                 if (ollamaProcess.stdout) {
                     ollamaProcess.stdout.on('data', (data) => {
-                        console.log(`Ollama output: ${data.toString().trim()}`);
+                        const output = data.toString().trim();
+                        console.log(`Ollama output: ${output}`);
+                        if (this.serviceChannel) {
+                            this.serviceChannel.appendLine(`[STDOUT] ${output}`);
+                        }
                     });
                 }
                 
                 if (ollamaProcess.stderr) {
                     ollamaProcess.stderr.on('data', (data) => {
-                        console.error(`Ollama error: ${data.toString().trim()}`);
+                        const error = data.toString().trim();
+                        console.error(`Ollama error: ${error}`);
+                        if (this.serviceChannel) {
+                            this.serviceChannel.appendLine(`[STDERR] ${error}`);
+                        }
                     });
                 }
                 
                 // Log process events
                 ollamaProcess.on('error', (err) => {
                     console.error(`Failed to start Ollama process: ${err.message}`);
+                    if (this.serviceChannel) {
+                        this.serviceChannel.appendLine(`❌ ERROR: Failed to start Ollama process: ${err.message}`);
+                    }
                 });
                 
                 ollamaProcess.on('exit', (code, signal) => {
                     if (code !== null) {
                         console.log(`Ollama process exited with code ${code}`);
+                        if (this.serviceChannel) {
+                            this.serviceChannel.appendLine(`⚠️ Ollama process exited with code ${code}`);
+                        }
                     } else if (signal !== null) {
                         console.log(`Ollama process was killed with signal ${signal}`);
+                        if (this.serviceChannel) {
+                            this.serviceChannel.appendLine(`⚠️ Ollama process was killed with signal ${signal}`);
+                        }
                     }
                 });
             }
@@ -645,10 +709,10 @@ export class OllamaService {
             // Report to user that we're waiting for Ollama to start
             vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
-                title: "Starting Ollama",
+                title: "🚀 Auto-Starting Ollama Server",
                 cancellable: false
             }, async (progress) => {
-                progress.report({ message: "Waiting for Ollama server to start..." });
+                progress.report({ message: "Waiting for Ollama server to start automatically..." });
                 
                 // Give Ollama some time to start - check multiple times with increasing wait
                 let isRunning = false;
@@ -657,13 +721,21 @@ export class OllamaService {
                 for (let i = 0; i < maxRetries; i++) {
                     // Calculate wait time: 2s, 3s, 4s, 5s, 6s
                     const waitTime = 2000 + (i * 1000);
-                    progress.report({ message: `Waiting for Ollama server to start (attempt ${i+1}/${maxRetries})...` });
+                    progress.report({ message: `Starting Ollama server (attempt ${i+1}/${maxRetries})...` });
+                    
+                    if (this.serviceChannel) {
+                        this.serviceChannel.appendLine(`Waiting ${waitTime/1000}s before checking server status (attempt ${i+1}/${maxRetries})...`);
+                    }
                     
                     // Wait before checking
                     await new Promise(resolve => setTimeout(resolve, waitTime));
                     
                     // Check if it's running now
                     try {
+                        if (this.serviceChannel) {
+                            this.serviceChannel.appendLine(`Checking if server is running (attempt ${i+1})...`);
+                        }
+                        
                         const response = await axios.get(`${this.baseUrl}/api/tags`, { 
                             timeout: 3000,
                             validateStatus: null,
@@ -674,21 +746,61 @@ export class OllamaService {
                         });
                         
                         if (response.status === 200) {
-                            console.log(`Ollama server started successfully after ${i+1} attempts`);
+                            const successMsg = `Ollama server started successfully after ${i+1} ${i === 0 ? 'attempt' : 'attempts'}`;
+                            console.log(successMsg);
+                            if (this.serviceChannel) {
+                                this.serviceChannel.appendLine(`✅ ${successMsg}`);
+                            }
                             isRunning = true;
                             break;
                         } else {
-                            console.log(`Ollama server returned status ${response.status} on attempt ${i+1}`);
+                            const statusMsg = `Ollama server returned status ${response.status} on attempt ${i+1}`;
+                            console.log(statusMsg);
+                            if (this.serviceChannel) {
+                                this.serviceChannel.appendLine(`⚠️ ${statusMsg}`);
+                            }
                         }
                     } catch (e) {
-                        console.log(`Ollama server not ready on attempt ${i+1}: ${e instanceof Error ? e.message : String(e)}`);
+                        const errorMsg = `Ollama server not ready on attempt ${i+1}: ${e instanceof Error ? e.message : String(e)}`;
+                        console.log(errorMsg);
+                        if (this.serviceChannel) {
+                            this.serviceChannel.appendLine(`⚠️ ${errorMsg}`);
+                        }
                     }
                 }
                 
                 if (isRunning) {
-                    vscode.window.showInformationMessage(`Ollama server started successfully.`);
+                    const successMsg = `Ollama server has been automatically started and is now running`;
+                    if (this.serviceChannel) {
+                        this.serviceChannel.appendLine(`\n✅ SUCCESS: ${successMsg}`);
+                    }
+                    
+                    vscode.window.showInformationMessage(
+                        successMsg,
+                        { modal: false },
+                        'Run Model'
+                    ).then(selection => {
+                        if (selection === 'Run Model') {
+                            vscode.commands.executeCommand('vscode-ollama.runModel');
+                        }
+                    });
                 } else {
-                    vscode.window.showWarningMessage(`Failed to verify if Ollama server started. It might need more time or there could be an issue.`);
+                    const warningMsg = `Failed to verify if Ollama server started automatically. It might need more time or there could be an issue.`;
+                    if (this.serviceChannel) {
+                        this.serviceChannel.appendLine(`\n⚠️ WARNING: ${warningMsg}`);
+                    }
+                    
+                    vscode.window.showWarningMessage(
+                        warningMsg,
+                        'Check Installation',
+                        'View Logs'
+                    ).then(selection => {
+                        if (selection === 'Check Installation') {
+                            vscode.commands.executeCommand('vscode-ollama.checkInstallation');
+                        } else if (selection === 'View Logs') {
+                            this.serviceChannel?.show(true);
+                        }
+                    });
                 }
                 
                 return isRunning;
@@ -1312,98 +1424,64 @@ export class OllamaService {
             vscode.workspace.getConfiguration('ollama').get('requestTimeout') as number || 
             90; // 90 second default timeout
         
-        // Create a timeout tracker to detect stalled responses
+        // Stream state management
         let responseTimeoutId: NodeJS.Timeout | null = null;
         let lastResponseTime = Date.now();
         let hasReceivedFirstChunk = false;
+        let hasSentThinkingMessage = false;
+        let abortController = new AbortController();
         
         try {
-            // Perform a thorough server health check before starting
-            try {
-                await this.checkServerHealth(model, { retry: true, retryCount: 1 });
-            } catch (checkError) {
-                console.log("Server health check failed, attempting to start Ollama service");
-                
-                if (this.apiChannel) {
-                    this.apiChannel.appendLine(`Health check failed: ${checkError instanceof Error ? checkError.message : String(checkError)}`);
-                    this.apiChannel.appendLine(`Attempting to start or restart Ollama service...`);
-                }
-                
-                // Try to start Ollama process
-                await this.startOllamaProcess();
-                
-                // Give it time to start and stabilize
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                // Try one more health check
-                try {
-                    await this.checkServerHealth(model, { retry: false });
-                    if (this.apiChannel) {
-                        this.apiChannel.appendLine(`Ollama service started successfully`);
-                    }
-                } catch (secondCheckError) {
-                    if (this.apiChannel) {
-                        this.apiChannel.appendLine(`Failed to start Ollama service: ${secondCheckError instanceof Error ? secondCheckError.message : String(secondCheckError)}`);
-                    }
-                    // Continue anyway, let the main request handle errors properly
-                }
+            // Send initial thinking message only once
+            if (!hasSentThinkingMessage) {
+                onChunk(`_Thinking..._`);
+                hasSentThinkingMessage = true;
             }
             
-            // Let the user know we're working
-            onChunk(`_Thinking..._`);
+            // Quick check if model is available before proceeding
+            await this.preflightModelCheck(model);
             
-            // Prepare the API request parameters with adjustable options
-            // Limit prompt size and token generation to avoid timeouts
-            const requestParams = {
-                model,
-                prompt: prompt.length > 12000 ? prompt.substring(0, 12000) + "... [truncated due to size]" : prompt,
-                stream: true,
-                options: {
-                    num_predict: Math.min(maxTokens, 2048), // Limit token generation to avoid timeouts
-                    temperature: temperature,               // Temperature setting
-                    top_k: 40,                              // Default top_k
-                    top_p: 0.9,                             // Default top_p
-                    repeat_penalty: 1.1                     // Slight penalty for repetition
-                }
-            };
+            // Prepare prompt with length limit to prevent issues
+            const truncatedPrompt = this.prepareTruncatedPrompt(prompt);
             
-            // Set response timeout handler - abort if no chunks received within timeoutSeconds/2
+            // Configure parameters with optimized settings
+            const requestParams = this.prepareRequestParams(model, truncatedPrompt, {
+                maxTokens,
+                temperature
+            });
+            
+            // Set up timeout monitoring for better responsiveness
             const setupResponseTimeout = () => {
-                // Clear any existing timeout
-                if (responseTimeoutId) {
-                    clearTimeout(responseTimeoutId);
-                }
+                if (responseTimeoutId) clearTimeout(responseTimeoutId);
                 
-                // Create a new timeout
                 responseTimeoutId = setTimeout(() => {
                     const timeElapsed = (Date.now() - lastResponseTime) / 1000;
-                    console.error(`No response chunks received for ${timeElapsed.toFixed(1)} seconds`);
+                    console.warn(`Response timeout: No chunks for ${timeElapsed.toFixed(1)}s`);
                     
                     if (this.apiChannel) {
-                        this.apiChannel.appendLine(`WARNING: No response chunks received for ${timeElapsed.toFixed(1)} seconds`);
+                        this.apiChannel.appendLine(`WARNING: No response chunks for ${timeElapsed.toFixed(1)}s`);
                     }
                     
-                    // If we've never received a chunk, the request likely failed to start properly
                     if (!hasReceivedFirstChunk) {
-                        const errorMsg = `Ollama server is not responding. The request may be stuck or the server may be overloaded.`;
+                        const errorMsg = `Ollama server is not responding. The server may be overloaded.`;
                         console.error(errorMsg);
                         onChunk(`\n\n_Error: ${errorMsg}_`);
-                        // We'll let the Promise timeout handle the actual termination
                     }
-                }, Math.min(10000, (timeoutSeconds * 1000) / 3)); // Use at most 10 seconds for quicker feedback
+                }, Math.min(8000, timeoutSeconds * 500)); // Quicker feedback (max 8s)
             };
             
-            // Setup initial timeout
+            // Initial timeout setup
             setupResponseTimeout();
             
-            // Make the API request
+            // Make API request with abort controller for cancellation support
             const response = await axios.post(
                 `${this.baseUrl}/api/generate`, 
                 requestParams, 
                 {
                     responseType: 'stream',
-                    timeout: 60000, // 60 second axios timeout - we'll handle streaming timeout ourselves
-                    maxContentLength: 20 * 1024 * 1024, // 20MB max to prevent memory issues
+                    timeout: 30000, // 30s initial connection timeout
+                    signal: abortController.signal,
+                    maxContentLength: 10 * 1024 * 1024, // 10MB limit for better memory usage
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
@@ -1412,12 +1490,15 @@ export class OllamaService {
                 }
             );
             
-            // Clear the initial "thinking" message since we're about to get real content
-            onChunk('');
+            // Clear the initial thinking message before real content arrives
+            if (hasSentThinkingMessage) {
+                onChunk('');
+                hasSentThinkingMessage = false;
+            }
             
-            // Process the stream data
+            // Error handling and chunk processing
             if (response.data) {
-                // Add error handlers directly to the stream
+                // Handle stream errors
                 response.data.on('error', (err: Error) => {
                     console.error('Stream error:', err);
                     if (this.apiChannel) {
@@ -1426,170 +1507,222 @@ export class OllamaService {
                     onChunk(`\n\n_Error in stream: ${err.message}_`);
                 });
                 
-                response.data.on('data', (chunk: Buffer) => {
+                // Efficiently process chunks with JSON Line parsing
+                const processChunk = (chunk: Buffer) => {
                     try {
-                        // Update the last response time
                         lastResponseTime = Date.now();
                         hasReceivedFirstChunk = true;
-                        
-                        // Reset the timeout since we got a chunk
-                        setupResponseTimeout();
+                        setupResponseTimeout(); // Reset timeout
                         
                         const text = chunk.toString();
-                        console.log(`Received chunk: ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`);
-                        
                         const lines = text.split('\n').filter(Boolean);
+                        
                         for (const line of lines) {
                             try {
                                 const data = JSON.parse(line);
                                 
-                                // Extract and send the response text if present
+                                // Only send content if available
                                 if (data.response) {
                                     onChunk(data.response);
                                 }
                                 
-                                // Check for completion marker
+                                // Handle completion
                                 if (data.done === true) {
-                                    console.log('Stream completed');
-                                    // Clean up timeout if we're done
-                                    if (responseTimeoutId) {
-                                        clearTimeout(responseTimeoutId);
-                                        responseTimeoutId = null;
-                                    }
+                                    this.cleanupTimeouts(responseTimeoutId);
+                                    responseTimeoutId = null;
                                 }
                             } catch (parseError) {
-                                console.error('Error parsing JSON in stream chunk:', parseError);
-                                if (this.apiChannel) {
-                                    this.apiChannel.appendLine(`Error parsing JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
-                                    this.apiChannel.appendLine(`Raw chunk: ${text}`);
-                                }
+                                // Log but continue processing - don't let one bad chunk stop everything
+                                console.warn('JSON parse error in chunk, continuing:', parseError);
                             }
                         }
                     } catch (error) {
-                        console.error('Error processing stream chunk:', error);
-                        if (this.apiChannel) {
-                            this.apiChannel.appendLine(`Error processing chunk: ${error instanceof Error ? error.message : String(error)}`);
-                        }
+                        console.error('Chunk processing error:', error);
                     }
-                });
+                };
                 
-                // Wait for stream to end with more efficient timeout and hard time limit
-                await new Promise<void>((resolve, reject) => {
-                    // Hard limit on total stream time to prevent excessive timeouts
-                    const hardTimeLimit = Math.min(45000, timeoutSeconds * 1000);
-                    
-                    // Shorter timeout if no initial data is received
-                    const initialResponseTimeout = Math.min(10000, timeoutSeconds * 1000 / 3);
-                    
-                    // Set up various timeouts
-                    const timeoutHandlers = {
-                        // Main timeout for the entire request
-                        hardTimeout: setTimeout(() => {
-                            const totalTime = (Date.now() - startTime) / 1000;
-                            const msg = `Maximum streaming time exceeded (${totalTime.toFixed(1)} seconds)`;
-                            
-                            if (this.apiChannel) {
-                                this.apiChannel.appendLine(msg);
-                            }
-                            console.log('Hard timeout reached, terminating stream');
-                            
-                            // Return a graceful message instead of error
-                            onChunk(`\n\n_${msg}. The model may have been generating too much content._`);
-                            
-                            // Don't reject - just resolve to end naturally
-                            resolve();
-                        }, hardTimeLimit),
-                        
-                        // Timeout for initial response
-                        initialTimeout: hasReceivedFirstChunk ? null : setTimeout(() => {
-                            if (!hasReceivedFirstChunk) {
-                                const msg = `No initial response received after ${initialResponseTimeout/1000} seconds`;
-                                if (this.apiChannel) {
-                                    this.apiChannel.appendLine(msg);
-                                }
-                                reject(new Error(msg));
-                            }
-                        }, initialResponseTimeout)
-                    };
-                    
-                    // Utility function to clear all timeouts
-                    const clearAllTimeouts = () => {
-                        if (timeoutHandlers.hardTimeout) clearTimeout(timeoutHandlers.hardTimeout);
-                        if (timeoutHandlers.initialTimeout) clearTimeout(timeoutHandlers.initialTimeout);
-                        if (responseTimeoutId) {
-                            clearTimeout(responseTimeoutId);
-                            responseTimeoutId = null;
-                        }
-                    };
-                    
-                    // Handle stream end
-                    response.data.on('end', () => {
-                        clearAllTimeouts();
-                        console.log('Stream ended normally');
-                        resolve();
-                    });
-                    
-                    // Handle stream errors
-                    response.data.on('error', (err: Error) => {
-                        clearAllTimeouts();
-                        console.error('Stream error during wait:', err);
-                        reject(err);
-                    });
-                    
-                    // Update activity status on data
-                    response.data.on('data', () => {
-                        // If this is the first chunk, clear the initial timeout
-                        if (!hasReceivedFirstChunk && timeoutHandlers.initialTimeout) {
-                            clearTimeout(timeoutHandlers.initialTimeout);
-                            timeoutHandlers.initialTimeout = null;
-                        }
-                    });
-                });
+                // Set up data handler
+                response.data.on('data', processChunk);
                 
-                // Clean up any remaining timeouts
-                if (responseTimeoutId) {
-                    clearTimeout(responseTimeoutId);
-                    responseTimeoutId = null;
-                }
+                // Wait for stream completion with timeout protection
+                await this.waitForStreamCompletion(
+                    response.data,
+                    {
+                        timeoutSeconds,
+                        startTime,
+                        hasReceivedFirstChunk,
+                        onError: (msg) => onChunk(`\n\n_Error: ${msg}_`),
+                        onTimeout: (msg) => onChunk(`\n\n_${msg}_`)
+                    }
+                );
+                
+                // Final cleanup
+                this.cleanupTimeouts(responseTimeoutId);
             }
         } catch (error) {
-            // Make sure timeout is cleared
-            if (responseTimeoutId) {
-                clearTimeout(responseTimeoutId);
-                responseTimeoutId = null;
-            }
+            // Cleanup on error
+            this.cleanupTimeouts(responseTimeoutId);
             
-            // Enhanced error reporting
-            let errorMessage = '';
-            if (axios.isAxiosError(error)) {
-                const axiosError = error as AxiosError;
-                errorMessage = `Network error: ${axiosError.message}`;
-                
-                if (axiosError.response) {
-                    errorMessage += ` (Status: ${axiosError.response.status})`;
-                } else if (axiosError.request) {
-                    errorMessage += ` (No response received)`;
-                    // Special handling for timeout case
-                    if (axiosError.code === 'ECONNABORTED') {
-                        errorMessage = `Request timed out after ${timeoutSeconds} seconds. The model might be busy or the server might be overloaded.`;
-                    }
-                }
-            } else if (error instanceof Error) {
-                errorMessage = `Error: ${error.message}`;
-            } else {
-                errorMessage = `Unknown error: ${String(error)}`;
-            }
+            // Format error for display
+            const errorMessage = this.formatStreamingError(error, timeoutSeconds);
             
             console.error('Ollama streaming error:', errorMessage);
             if (this.apiChannel) {
                 this.apiChannel.appendLine(`Streaming error: ${errorMessage}`);
             }
             
-            // Always add error message to the UI
+            // Send formatted error to UI
             onChunk(`\n\n_Error: ${errorMessage}_`);
             
-            // Rethrow for proper error propagation
             throw error;
+        }
+    }
+    
+    // Helper methods for streamCompletion
+    
+    private async preflightModelCheck(model: string): Promise<void> {
+        try {
+            await this.checkServerHealth(model, { retry: true, retryCount: 1 });
+        } catch (error) {
+            console.log("Server health check failed, attempting recovery");
+            
+            if (this.apiChannel) {
+                this.apiChannel.appendLine(`Health check failed: ${error instanceof Error ? error.message : String(error)}`);
+                this.apiChannel.appendLine(`Attempting to start Ollama service...`);
+            }
+            
+            // Try to start Ollama and wait for it
+            await this.startOllamaProcess();
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Quick verification (but continue even if it fails)
+            try {
+                await this.checkServerHealth(model, { retry: false });
+            } catch (secondError) {
+                console.warn("Could not verify server after restart, continuing anyway");
+            }
+        }
+    }
+    
+    private prepareTruncatedPrompt(prompt: string): string {
+        // Keep prompt size reasonable to avoid timeouts
+        const MAX_PROMPT_LENGTH = 8000; // Based on testing, this is a safe limit
+        
+        if (prompt.length > MAX_PROMPT_LENGTH) {
+            return prompt.substring(0, MAX_PROMPT_LENGTH) + 
+                `\n\n... [content truncated to ${MAX_PROMPT_LENGTH} characters for performance] ...`;
+        }
+        return prompt;
+    }
+    
+    private prepareRequestParams(model: string, prompt: string, opts: any): any {
+        return {
+            model,
+            prompt,
+            stream: true,
+            options: {
+                num_predict: Math.min(opts.maxTokens || 2048, 4096), // Reasonable token limit
+                temperature: opts.temperature || 0.7,      // Temperature from opts or default
+                top_k: 40,                                 // Default top_k
+                top_p: 0.9,                               // Default top_p
+                repeat_penalty: 1.1                       // Light penalty for repetition
+            }
+        };
+    }
+    
+    private async waitForStreamCompletion(
+        stream: any, 
+        options: {
+            timeoutSeconds: number,
+            startTime: number,
+            hasReceivedFirstChunk: boolean,
+            onError: (msg: string) => void,
+            onTimeout: (msg: string) => void
+        }
+    ): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
+            // Hard limit to prevent excessive streaming
+            const hardTimeLimit = Math.min(45000, options.timeoutSeconds * 1000);
+            
+            // Timeout for initial response
+            const initialResponseTimeout = Math.min(10000, options.timeoutSeconds * 1000 / 3);
+            
+            // Set up timeout handlers
+            const timeouts = {
+                hardTimeout: setTimeout(() => {
+                    const totalTime = (Date.now() - options.startTime) / 1000;
+                    const msg = `Maximum streaming time (${totalTime.toFixed(1)}s) exceeded`;
+                    
+                    console.log('Hard timeout reached');
+                    options.onTimeout(`${msg}. The model may be generating too much content.`);
+                    
+                    // Just resolve to end gracefully
+                    resolve();
+                }, hardTimeLimit),
+                
+                initialTimeout: !options.hasReceivedFirstChunk ? setTimeout(() => {
+                    if (!options.hasReceivedFirstChunk) {
+                        const msg = `No response received after ${initialResponseTimeout/1000}s`;
+                        console.error(msg);
+                        reject(new Error(msg));
+                    }
+                }, initialResponseTimeout) : null
+            };
+            
+            // Utility to clean up all timeouts
+            const clearAllTimeouts = () => {
+                if (timeouts.hardTimeout) clearTimeout(timeouts.hardTimeout);
+                if (timeouts.initialTimeout) clearTimeout(timeouts.initialTimeout);
+            };
+            
+            // Set up event handlers
+            stream.on('end', () => {
+                clearAllTimeouts();
+                resolve();
+            });
+            
+            stream.on('error', (err: Error) => {
+                clearAllTimeouts();
+                reject(err);
+            });
+            
+            // First chunk received - clear initial timeout
+            stream.on('data', () => {
+                if (timeouts.initialTimeout) {
+                    clearTimeout(timeouts.initialTimeout);
+                    timeouts.initialTimeout = null;
+                }
+            });
+        });
+    }
+    
+    private cleanupTimeouts(timeoutId: NodeJS.Timeout | null): void {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+    }
+    
+    private formatStreamingError(error: any, timeoutSeconds: number): string {
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError;
+            
+            if (axiosError.code === 'ECONNABORTED') {
+                return `Request timed out after ${timeoutSeconds}s. The model might be busy or the server overloaded.`;
+            } else if (axiosError.code === 'ECONNREFUSED') {
+                return `Connection refused. Make sure Ollama server is running.`;
+            } else if (axiosError.code === 'ERR_CANCELED') {
+                return `Request was canceled.`;
+            } else if (axiosError.response) {
+                return `Server error (Status: ${axiosError.response.status}). Try using a different model.`;
+            } else if (axiosError.request) {
+                return `No response from server. Check your network connection.`;
+            } else {
+                return `Network error: ${axiosError.message}`;
+            }
+        } else if (error instanceof Error) {
+            return error.message;
+        } else {
+            return `Unknown error: ${String(error)}`;
         }
     }
 }

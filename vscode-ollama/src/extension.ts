@@ -331,6 +331,51 @@ export function activate(context: vscode.ExtensionContext) {
         await executeCodeAction('Generate comprehensive documentation for this code:');
     });
     
+    // Command to add selected text as reference/context to the chat
+    const addAsReferenceCommand = vscode.commands.registerCommand('vscode-ollama.addAsReference', async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage('No active text editor');
+            return;
+        }
+        
+        const selection = editor.selection;
+        if (selection.isEmpty) {
+            vscode.window.showErrorMessage('No text selected');
+            return;
+        }
+        
+        const selectedText = editor.document.getText(selection);
+        if (!selectedText) {
+            vscode.window.showErrorMessage('Selected text is empty');
+            return;
+        }
+        
+        // Get file extension for language context
+        const fileExtension = path.extname(editor.document.fileName);
+        const fileName = path.basename(editor.document.fileName);
+        
+        // Format the reference text with markdown formatting
+        const referenceText = `Reference from ${fileName}:\n\`\`\`${fileExtension.replace('.', '')}\n${selectedText}\n\`\`\``;
+        
+        try {
+            // Make sure Ollama panel is visible
+            OllamaPanel.createOrShow(ollamaService);
+            
+            if (OllamaPanel.currentPanel) {
+                // Send the reference to the panel
+                OllamaPanel.currentPanel.addReference(referenceText);
+                
+                // Show a success message
+                vscode.window.setStatusBarMessage('Selection added as reference to Ollama chat', 3000);
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage(
+                `Failed to add reference: ${error instanceof Error ? error.message : String(error)}`
+            );
+        }
+    });
+    
     // Function to execute code actions with selected text
     async function executeCodeAction(prompt: string) {
         const editor = vscode.window.activeTextEditor;
@@ -554,8 +599,26 @@ export function activate(context: vscode.ExtensionContext) {
         performCheck();
     };
     
-    // Perform the first check immediately
-    checkOllamaStatus(statusBarItem, ollamaService, MAIN_OUTPUT_CHANNEL);
+    // Perform the first check immediately and trigger auto-start if needed
+    const performInitialCheck = async () => {
+        try {
+            // This initial explicit check will trigger the auto-start logic in ollamaService.ts
+            // if Ollama is installed but not running
+            MAIN_OUTPUT_CHANNEL.appendLine('Performing initial Ollama status check with auto-start...');
+            const isInstalled = await ollamaService.checkOllamaInstalled();
+            MAIN_OUTPUT_CHANNEL.appendLine(`Initial Ollama check result: ${isInstalled ? 'running' : 'not running'}`);
+            
+            // Update status bar after the check
+            checkOllamaStatus(statusBarItem, ollamaService, MAIN_OUTPUT_CHANNEL);
+        } catch (error) {
+            MAIN_OUTPUT_CHANNEL.appendLine(`Error in initial Ollama check: ${error instanceof Error ? error.message : String(error)}`);
+            // Update status bar to show error
+            checkOllamaStatus(statusBarItem, ollamaService, MAIN_OUTPUT_CHANNEL);
+        }
+    };
+    
+    // Execute the initial check
+    performInitialCheck();
     
     // Then set up adaptive polling
     adaptiveStatusPolling();
@@ -722,6 +785,7 @@ ${precedingText}
         explainCodeCommand,
         improveCodeCommand,
         generateDocumentationCommand,
+        addAsReferenceCommand,
         completeCodeCommand,
         completionProvider,
         statusBarItem
