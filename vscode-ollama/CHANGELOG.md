@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.0.2] - Unreleased
+## [0.1.0] - 2025-04-02
 
 ### Added
 - Support for displaying and copying code blocks from responses
@@ -24,6 +24,8 @@
 - Fixed issues with extension getting stuck in "Thinking..." state
 - Improved error handling and recovery during network timeouts
 - Better handling of large responses to prevent UI freezing
+- Fixed issue with code selection not being included in prompts when using "Help me perfect this function"
+- Fixed extension not starting automatically on VS Code launch
 
 ## [0.0.1] - 2025-03-15
 

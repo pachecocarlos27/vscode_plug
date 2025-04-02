@@ -174,11 +174,17 @@ function sendPrompt() {
         promptInput.value = '';
         autoResizeTextarea();
         
-        vscode.postMessage({
-            command: 'sendPrompt',
-            text: text,
-            includeContext: true // Always include context
-        });
+        // Fetch latest context when sending prompt to ensure we have current selection
+        vscode.postMessage({ command: 'refreshContext' });
+        
+        // Short delay to allow context refresh to complete before sending prompt
+        setTimeout(() => {
+            vscode.postMessage({
+                command: 'sendPrompt',
+                text: text,
+                includeContext: true // Always include context
+            });
+        }, 100);
     }
 }
 
@@ -852,6 +858,9 @@ window.addEventListener('message', event => {
                     addUserMessage(text);
                     promptInput.value = '';
                     autoResizeTextarea();
+                    
+                    // Ensure we get fresh context with current selection
+                    vscode.postMessage({ command: 'refreshContext' });
                     
                     vscode.postMessage({
                         command: 'sendPrompt',

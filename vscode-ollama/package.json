@@ -2,7 +2,7 @@
   "name": "vscode-ollama",
   "displayName": "Ollama for VS Code",
   "description": "Run Ollama models directly from VS Code - code editing, project-aware AI assistance",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "OllamaExtension",
   "private": true,
   "license": "MIT",
@@ -17,6 +17,7 @@
     "Programming Languages"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onCommand:vscode-ollama.runModel",
     "onCommand:vscode-ollama.listModels",
     "onCommand:vscode-ollama.pullModel",
@@ -24,7 +25,9 @@
     "onCommand:vscode-ollama.explainCode",
     "onCommand:vscode-ollama.improveCode",
     "onCommand:vscode-ollama.generateDocumentation",
-    "onCommand:vscode-ollama.debug"
+    "onCommand:vscode-ollama.debug",
+    "onCommand:vscode-ollama.addAsReference",
+    "onView:ollamaChat"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -218,7 +221,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/vscode-ollama"
+    "url": "https://github.com/OllamaExtension/vscode-ollama"
   },
   "keywords": [
     "ollama",
@@ -237,7 +240,7 @@
   ],
   "author": "Ollama Extension Team",
   "bugs": {
-    "url": "https://github.com/yourusername/vscode-ollama/issues"
+    "url": "https://github.com/OllamaExtension/vscode-ollama/issues"
   },
-  "homepage": "https://github.com/yourusername/vscode-ollama#readme"
+  "homepage": "https://github.com/OllamaExtension/vscode-ollama#readme"
 }

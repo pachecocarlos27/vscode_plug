@@ -15,25 +15,48 @@ export let API_OUTPUT_CHANNEL: vscode.OutputChannel;
 // We need to initialize these channels in the activate function to avoid the 'window is not defined' error
 function initializeOutputChannels() {
     try {
+        // Create output channels with descriptive names
         GLOBAL_OUTPUT_CHANNEL = vscode.window.createOutputChannel('Ollama Debug');
         MAIN_OUTPUT_CHANNEL = vscode.window.createOutputChannel('Ollama');
         SERVICE_OUTPUT_CHANNEL = vscode.window.createOutputChannel('Ollama Service');
         API_OUTPUT_CHANNEL = vscode.window.createOutputChannel('Ollama API');
         
-        GLOBAL_OUTPUT_CHANNEL.appendLine('Ollama Debug Channel Created: ' + new Date().toISOString());
-        GLOBAL_OUTPUT_CHANNEL.appendLine(`VS Code Version: ${vscode.version}`);
-        GLOBAL_OUTPUT_CHANNEL.appendLine(`OS: ${os.platform()} ${os.release()}`);
+        // Log detailed information to all channels to help with debugging
+        const timestamp = new Date().toISOString();
+        const vscodeInfo = `VS Code Version: ${vscode.version}`;
+        const osInfo = `OS: ${os.platform()} ${os.release()}`;
         
-        // Log to other channels
-        [MAIN_OUTPUT_CHANNEL, SERVICE_OUTPUT_CHANNEL, API_OUTPUT_CHANNEL].forEach(channel => {
-            channel.appendLine(`${channel.name} output channel created: ${new Date().toISOString()}`);
-        });
+        // Helper to initialize each channel with consistent information
+        const initChannel = (channel: vscode.OutputChannel, name: string): void => {
+            channel.appendLine(`${name} Channel Created: ${timestamp}`);
+            channel.appendLine(vscodeInfo);
+            channel.appendLine(osInfo);
+            channel.appendLine(`Available channels: Debug, Main, Service, API`);
+            
+            // Make sure channel is visible in the output panel dropdown
+            channel.show(false);
+            
+            // Log channel name for verification
+            channel.appendLine(`Channel name: '${channel.name}'`);
+        };
         
-        // Show the channels
-        GLOBAL_OUTPUT_CHANNEL.show(false);
-        MAIN_OUTPUT_CHANNEL.show(false);
-        SERVICE_OUTPUT_CHANNEL.show(false);
-        API_OUTPUT_CHANNEL.show(false);
+        // Initialize all channels
+        initChannel(GLOBAL_OUTPUT_CHANNEL, 'Debug');
+        initChannel(MAIN_OUTPUT_CHANNEL, 'Main');
+        initChannel(SERVICE_OUTPUT_CHANNEL, 'Service');
+        initChannel(API_OUTPUT_CHANNEL, 'API');
+        
+        // Make all channels available in the Output dropdown by showing them in sequence
+        // This ensures VS Code registers all channels properly
+        setTimeout(() => {
+            vscode.commands.executeCommand('workbench.action.output.show').then(() => {
+                // Add a delay between operations to ensure VS Code UI updates
+                setTimeout(() => GLOBAL_OUTPUT_CHANNEL.show(false), 100);
+                setTimeout(() => MAIN_OUTPUT_CHANNEL.show(false), 200);
+                setTimeout(() => SERVICE_OUTPUT_CHANNEL.show(false), 300);
+                setTimeout(() => API_OUTPUT_CHANNEL.show(false), 400);
+            });
+        }, 500);
         
         return true;
     } catch (error) {
@@ -236,8 +259,8 @@ export function activate(context: vscode.ExtensionContext) {
             try {
                 progress.report({ message: 'Downloading and installing model...' });
                 
-                // Use private method through any type
-                await (ollamaService as any).pullModel(modelName);
+                // Use protected method
+                await ollamaService['pullModel'](modelName);
                 
                 vscode.window.showInformationMessage(`Successfully installed ${modelName} model!`);
             } catch (error) {
@@ -376,8 +399,19 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
     
-    // Function to execute code actions with selected text
-    async function executeCodeAction(prompt: string) {
+    // Add change selection listener to make sure context is updated
+    context.subscriptions.push(
+        vscode.window.onDidChangeTextEditorSelection((event) => {
+            // When selection changes, update context in the panel
+            if (OllamaPanel.currentPanel && !event.selections[0].isEmpty) {
+                MAIN_OUTPUT_CHANNEL.appendLine('Selection changed, refreshing context');
+                OllamaPanel.currentPanel.notifyContextChange();
+            }
+        })
+    );
+    
+// Function to execute code actions with selected text
+async function executeCodeAction(prompt: string) {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage('No active text editor');
@@ -440,6 +474,10 @@ export function activate(context: vscode.ExtensionContext) {
                 modelToUse = selectedModel.label;
             }
             
+            // Log selection details for debugging
+            MAIN_OUTPUT_CHANNEL.appendLine(`Code action: ${prompt}`);
+            MAIN_OUTPUT_CHANNEL.appendLine(`Selected text (${selectedText.length} chars): ${selectedText.substring(0, 100)}${selectedText.length > 100 ? '...' : ''}`);
+            
             // Construct the full prompt with language and file context
             const fullPrompt = `${prompt}\n\nLanguage: ${fileExtension.replace('.', '') || 'Unknown'}\nCode:\n\`\`\`\n${selectedText}\n\`\`\``;
             
@@ -449,7 +487,7 @@ export function activate(context: vscode.ExtensionContext) {
                 // Set the model to use
                 OllamaPanel.currentPanel.setModel(modelToUse);
                 
-                // Send the prompt to the panel
+                // Send the prompt to the panel with a delay to ensure context is captured
                 setTimeout(() => {
                     if (OllamaPanel.currentPanel) {
                         OllamaPanel.currentPanel.sendPrompt(fullPrompt);

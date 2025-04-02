@@ -24,39 +24,36 @@ export class OllamaService {
     private readonly CACHE_TTL = 30 * 1000; // 30 seconds cache lifetime
 
     constructor(serviceChannel: vscode.OutputChannel, apiChannel: vscode.OutputChannel) {
-        console.log('Initializing OllamaService...');
-        
-        // Use the provided output channels
         this.serviceChannel = serviceChannel;
         this.apiChannel = apiChannel;
         
         try {
-            // Default to localhost:11434 but allow configuration
+            // Ensure output channels are visible in the Output panel dropdown
+            this.serviceChannel.show(false);
+            this.apiChannel.show(false);
+            
             this.baseUrl = vscode.workspace.getConfiguration('ollama').get('apiUrl') as string || 'http://localhost:11434';
             console.log(`Using Ollama API URL: ${this.baseUrl}`);
             
-            // Make sure the output channels are visible
             this.serviceChannel.appendLine(`Ollama Service initialized with API URL: ${this.baseUrl}`);
-            this.serviceChannel.show(false); // Show in dropdown but don't focus
-            
             this.apiChannel.appendLine(`API Channel initialized - API URL: ${this.baseUrl}`);
-            this.apiChannel.show(false); // Show in dropdown but don't focus
             
-            // Log system info
+            // Log channel names to make debugging easier
+            this.serviceChannel.appendLine(`Channel names: Service='${this.serviceChannel.name}', API='${this.apiChannel.name}'`);
+            this.apiChannel.appendLine(`Channel names: Service='${this.serviceChannel.name}', API='${this.apiChannel.name}'`);
+            
             this.logSystemInfo();
             
-            // Log auto-start setting
             const autoStartEnabled = vscode.workspace.getConfiguration('ollama').get('autoStartServer', true);
             this.serviceChannel.appendLine(`Auto-start server configuration: ${autoStartEnabled ? 'enabled' : 'disabled'}`);
             this.apiChannel.appendLine(`Auto-start server configuration: ${autoStartEnabled ? 'enabled' : 'disabled'}`);
-            
-            // Initial auto-start check will be performed when checkOllamaInstalled is called
             this.serviceChannel.appendLine('Auto-start check will be performed when extension activates');
         } catch (error) {
             console.error('Error initializing OllamaService:', error);
-            // Log to both channels
             this.serviceChannel.appendLine(`Error in OllamaService constructor: ${error instanceof Error ? error.message : String(error)}`);
-            this.apiChannel.appendLine(`Error in OllamaService constructor: ${error instanceof Error ? error.message : String(error)}`);
+            if (this.apiChannel) {
+                this.apiChannel.appendLine(`Error in OllamaService constructor: ${error instanceof Error ? error.message : String(error)}`);
+            }
         }
     }
     
@@ -76,7 +73,7 @@ export class OllamaService {
                 this.serviceChannel.appendLine(`  ${key}: ${value}`);
             });
             
-            // Log all Ollama configuration
+            // Log Ollama configuration
             const ollamaConfig = vscode.workspace.getConfiguration('ollama');
             this.serviceChannel.appendLine('Ollama Configuration:');
             const configKeys = [
@@ -90,7 +87,6 @@ export class OllamaService {
                 this.serviceChannel.appendLine(`  ${key}: ${JSON.stringify(value)}`);
             }
             
-            // Make sure the channel is visible
             this.serviceChannel.show(false);
         } catch (error) {
             this.serviceChannel.appendLine(`Error logging system info: ${error instanceof Error ? error.message : String(error)}`);
@@ -101,68 +97,46 @@ export class OllamaService {
         const platform = os.platform();
         
         if (platform === 'darwin') {
-            return {
-                title: 'Download Ollama for macOS',
-                url: 'https://ollama.com/download/mac'
-            };
+            return { title: 'Download Ollama for macOS', url: 'https://ollama.com/download/mac' };
         } else if (platform === 'win32') {
-            return {
-                title: 'Download Ollama for Windows',
-                url: 'https://ollama.com/download/windows'
-            };
+            return { title: 'Download Ollama for Windows', url: 'https://ollama.com/download/windows' };
         } else {
-            // Linux
-            return {
-                title: 'Install Ollama for Linux',
-                url: 'https://ollama.com/download/linux'
-            };
+            return { title: 'Install Ollama for Linux', url: 'https://ollama.com/download/linux' };
         }
     }
 
     async checkOllamaInstalled(): Promise<boolean> {
-        // Force recheck if requested
         if (this.isInstalled !== null && !vscode.workspace.getConfiguration('ollama').get('forceRecheck', false)) {
             return this.isInstalled;
         }
 
         try {
-            // Log attempt to connect to Ollama API
             console.log(`Attempting to connect to Ollama API at ${this.baseUrl}/api/tags`);
             
-            // Add detailed debugging info
-            if (this.apiChannel) {
-                this.apiChannel.appendLine(`\n============ CONNECTION ATTEMPT DETAILS ============`);
-                this.apiChannel.appendLine(`Time: ${new Date().toISOString()}`);
-                this.apiChannel.appendLine(`URL: ${this.baseUrl}/api/tags`);
-                this.apiChannel.appendLine(`Timeout: 5000ms`);
-                this.apiChannel.appendLine(`OS: ${os.platform()} ${os.release()}`);
-                this.apiChannel.appendLine(`Network: Connecting to ${this.baseUrl.replace('http://', '').replace('https://', '')}`);
-                this.apiChannel.appendLine(`================================================`);
-                
-                // Make sure the channel is visible without stealing focus
-                this.apiChannel.show(true);
-                this.serviceChannel.show(false);
-            }
+            // Make sure the API channel is visible and active
+            this.apiChannel.show(false);
             
-            // Make a basic request to the Ollama API to see if it's running
-            console.log('Sending API test request...');
+            this.apiChannel.appendLine(`\n============ CONNECTION ATTEMPT DETAILS ============`);
+            this.apiChannel.appendLine(`Time: ${new Date().toISOString()}`);
+            this.apiChannel.appendLine(`URL: ${this.baseUrl}/api/tags`);
+            this.apiChannel.appendLine(`OS: ${os.platform()} ${os.release()}`);
+            this.apiChannel.appendLine(`Channel name: '${this.apiChannel.name}'`);
+            
+            // Force showing the API channel when checking installation
+            vscode.commands.executeCommand('workbench.action.output.show', this.apiChannel.name);
+            
             const response = await axios.get(`${this.baseUrl}/api/tags`, { 
-                timeout: 5000, // Increased timeout to allow for network delays
-                validateStatus: null, // Accept any status code for more detailed error handling
-                headers: { 
-                    'Cache-Control': 'no-cache', // Prevent caching
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                // Add proxy configuration to help with some network setups
+                timeout: 5000,
+                validateStatus: null,
+                headers: { 'Cache-Control': 'no-cache', 'Accept': 'application/json' },
                 proxy: false
             });
             
-            console.log(`Received response with status: ${response.status}`);
-            if (this.apiChannel) {
-                this.apiChannel.appendLine(`Response status: ${response.status}`);
-                this.apiChannel.appendLine(`Response data: ${JSON.stringify(response.data).substring(0, 200)}...`);
-            }
+            this.apiChannel.appendLine(`Response status: ${response.status}`);
+            this.apiChannel.appendLine(`Response data: ${JSON.stringify(response.data).substring(0, 200)}...`);
+            
+            // Ensure the API channel is shown after successful response
+            this.apiChannel.show(false);
             
             if (response.status === 200) {
                 console.log('Ollama API connection successful');
@@ -173,17 +147,14 @@ export class OllamaService {
                 return true;
             } else {
                 console.log(`Ollama API returned status: ${response.status}`);
-                // If we got a response but not 200, Ollama is likely running but with issues
                 if (this.apiChannel) {
                     this.apiChannel.appendLine(`⚠️ Ollama API returned status code ${response.status}`);
-                    this.apiChannel.appendLine(`Response body: ${JSON.stringify(response.data)}`);
                 }
                 throw new Error(`Ollama API returned status code ${response.status}`);
             }
         } catch (error) {
             console.log('Ollama API connection failed:', error);
             
-            // Enhanced error reporting in API channel for debugging
             if (this.apiChannel) {
                 this.apiChannel.appendLine(`\n❌ CONNECTION ERROR DETAILS ❌`);
                 this.apiChannel.appendLine(`Time: ${new Date().toISOString()}`);
@@ -194,21 +165,6 @@ export class OllamaService {
                     this.apiChannel.appendLine(`Error code: ${axiosError.code || 'none'}`);
                     this.apiChannel.appendLine(`Error message: ${axiosError.message}`);
                     
-                    if (axiosError.response) {
-                        this.apiChannel.appendLine(`Response status: ${axiosError.response.status}`);
-                        this.apiChannel.appendLine(`Response statusText: ${axiosError.response.statusText}`);
-                        const responseData = typeof axiosError.response.data === 'object' 
-                            ? JSON.stringify(axiosError.response.data) 
-                            : String(axiosError.response.data);
-                        this.apiChannel.appendLine(`Response data: ${responseData.substring(0, 200)}`);
-                    } else if (axiosError.request) {
-                        this.apiChannel.appendLine(`Request was made but no response received`);
-                        this.apiChannel.appendLine(`Target host: ${this.baseUrl}`);
-                    } else {
-                        this.apiChannel.appendLine(`Request setup error (before sending)`);
-                    }
-                    
-                    // Network specific errors
                     if (axiosError.code === 'ECONNREFUSED') {
                         this.apiChannel.appendLine(`📌 DIAGNOSIS: Connection refused - Ollama server is likely not running`);
                     } else if (axiosError.code === 'ENOTFOUND') {
@@ -216,16 +172,9 @@ export class OllamaService {
                     } else if (axiosError.code === 'ETIMEDOUT') {
                         this.apiChannel.appendLine(`📌 DIAGNOSIS: Connection timed out - Server may be busy or unreachable`);
                     }
-                } else {
-                    this.apiChannel.appendLine(`Error type: ${error instanceof Error ? error.constructor.name : typeof error}`);
-                    this.apiChannel.appendLine(`Error message: ${error instanceof Error ? error.message : String(error)}`);
-                    if (error instanceof Error && error.stack) {
-                        this.apiChannel.appendLine(`Stack trace: ${error.stack}`);
-                    }
                 }
                 
                 this.apiChannel.appendLine(`\nTrying to verify Ollama installation status...`);
-                this.apiChannel.show(true);
             }
             
             // Check if it's a connection error (likely Ollama is not running)
@@ -235,13 +184,11 @@ export class OllamaService {
             if (isConnectionError) {
                 console.log('Connection error, checking if Ollama is installed but not running');
                 
-                // Try to check if the Ollama binary exists
                 try {
                     const platform = os.platform();
                     console.log(`Checking for Ollama installation on ${platform}`);
                     
                     if (platform === 'win32') {
-                        // Check Program Files for Ollama
                         const ollamaPath = path.join(process.env['ProgramFiles'] || 'C:\\Program Files', 'Ollama', 'ollama.exe');
                         console.log(`Looking for Ollama at: ${ollamaPath}`);
                         
@@ -250,11 +197,8 @@ export class OllamaService {
                         this.isInstalled = exists;
                         
                         if (this.isInstalled && vscode.workspace.getConfiguration('ollama').get('autoStartServer', true)) {
-                            // Ollama is installed but not running - attempt to start it
                             console.log('Attempting to start Ollama process on Windows');
-                            const startResult = await this.startOllamaProcess();
-                            console.log(`Ollama start result: ${startResult}`);
-                            return startResult;
+                            return await this.startOllamaProcess();
                         }
                     } else {
                         // For macOS and Linux, check if ollama is in the PATH
@@ -264,7 +208,6 @@ export class OllamaService {
                                 this.apiChannel.appendLine('Checking if ollama binary is available in PATH...');
                             }
                             
-                            // Run both common methods for getting version info for better diagnostics
                             try {
                                 const versionOutput = child_process.execSync('ollama --version', { encoding: 'utf8' });
                                 console.log('Ollama binary found in PATH:', versionOutput.trim());
@@ -272,8 +215,6 @@ export class OllamaService {
                                     this.apiChannel.appendLine(`Ollama binary found: ${versionOutput.trim()}`);
                                 }
                             } catch (versionError) {
-                                console.log('Error checking version:', versionError);
-                                // Try locating the binary directly
                                 let locateOutput = '';
                                 try {
                                     locateOutput = child_process.execSync('which ollama', { encoding: 'utf8' });
@@ -285,7 +226,6 @@ export class OllamaService {
                                     console.log('Error locating binary:', locateError);
                                     if (this.apiChannel) {
                                         this.apiChannel.appendLine('Could not locate ollama binary with "which" command');
-                                        // Try a few common locations
                                         this.apiChannel.appendLine('Checking common installation paths...');
                                         const commonPaths = [
                                             '/usr/local/bin/ollama',
@@ -295,22 +235,19 @@ export class OllamaService {
                                             `/home/${os.userInfo().username}/.ollama/ollama`
                                         ];
                                         for (const path of commonPaths) {
-                                            this.apiChannel.appendLine(`Checking ${path}...`);
                                             if (fs.existsSync(path)) {
                                                 this.apiChannel.appendLine(`✅ Found ollama binary at ${path}`);
                                                 break;
                                             }
                                         }
                                     }
-                                    throw locateError; // Rethrow to indicate binary not found
+                                    throw locateError;
                                 }
                             }
                             
-                            // If we get here, the binary was found
                             this.isInstalled = true;
                             
                             if (vscode.workspace.getConfiguration('ollama').get('autoStartServer', true)) {
-                                // Ollama is installed but not running - attempt to start it
                                 console.log('Attempting to start Ollama process on Unix');
                                 if (this.apiChannel) {
                                     this.apiChannel.appendLine('Attempting to start Ollama server process...');
@@ -327,7 +264,6 @@ export class OllamaService {
                             console.log('Ollama binary not found in PATH');
                             if (this.apiChannel) {
                                 this.apiChannel.appendLine('❌ Ollama binary not found in PATH');
-                                this.apiChannel.appendLine(`Error: ${e instanceof Error ? e.message : String(e)}`);
                             }
                             this.isInstalled = false;
                         }
@@ -364,8 +300,7 @@ export class OllamaService {
                 );
                 
                 if (action === 'Start Ollama') {
-                    const startResult = await this.startOllamaProcess();
-                    return startResult;
+                    return await this.startOllamaProcess();
                 }
             }
             
@@ -375,10 +310,6 @@ export class OllamaService {
 
     /**
      * Check if the Ollama server is healthy and the specified model is available
-     * More thorough than just checking if the server is running
-     * @param modelName Optional model name to check
-     * @param options Additional options for the health check
-     * @returns Promise resolving to a boolean indicating if the server is healthy
      */
     private async checkServerHealth(
         modelName?: string, 
@@ -394,7 +325,6 @@ export class OllamaService {
         // Check cache first if not bypassing
         if (!bypassCache) {
             const now = Date.now();
-            // If checking same model or no model and cache is valid
             if (this.serverHealthCache && 
                 (now - this.serverHealthCache.timestamp < this.CACHE_TTL) &&
                 (this.serverHealthCache.modelName === modelName || (!this.serverHealthCache.modelName && !modelName))) {
@@ -411,8 +341,6 @@ export class OllamaService {
         
         // Implement exponential backoff for retries
         const getBackoffDelay = (attempt: number): number => {
-            // Start with base delay and increase exponentially with each attempt
-            // Base * 2^(attempt-1) with 10% jitter
             const baseDelay = retryDelay;
             const exponentialDelay = baseDelay * Math.pow(2, attempt - 1);
             const jitter = exponentialDelay * 0.1 * Math.random(); // 10% random jitter
@@ -425,20 +353,16 @@ export class OllamaService {
             
             try {
                 if (this.apiChannel && attemptCount > 1) {
-                    this.apiChannel.appendLine(`[${new Date().toISOString()}] Retrying server health check (attempt ${attemptCount}/${maxAttempts}, delay: ${currentDelay.toFixed(0)}ms)`);
+                    this.apiChannel.appendLine(`[${new Date().toISOString()}] Retrying server health check (attempt ${attemptCount}/${maxAttempts})`);
                 } else if (this.apiChannel) {
                     this.apiChannel.appendLine(`[${new Date().toISOString()}] Checking Ollama server health`);
                 }
                 
-                // Test if the server is responsive - use a short timeout for better responsiveness
+                // Test if the server is responsive
                 const tagsResponse = await axios.get(`${this.baseUrl}/api/tags`, { 
-                    timeout: Math.min(3000, currentDelay), // Use shorter timeout with each retry
-                    validateStatus: null, // Accept any status code
-                    headers: { 
-                        'Cache-Control': 'no-cache',
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
+                    timeout: Math.min(3000, currentDelay),
+                    validateStatus: null,
+                    headers: { 'Cache-Control': 'no-cache', 'Accept': 'application/json' },
                     proxy: false
                 });
                 
@@ -457,12 +381,7 @@ export class OllamaService {
                     }
                     
                     // Update cache with failure state
-                    this.serverHealthCache = {
-                        isHealthy: false,
-                        timestamp: Date.now(),
-                        modelName
-                    };
-                    
+                    this.serverHealthCache = { isHealthy: false, timestamp: Date.now(), modelName };
                     throw new Error(`Ollama server responded with status code ${tagsResponse.status}`);
                 }
                 
@@ -472,12 +391,7 @@ export class OllamaService {
                         this.apiChannel.appendLine(`Server is healthy (no specific model check requested)`);
                     }
                     
-                    // Update cache with success state
-                    this.serverHealthCache = {
-                        isHealthy: true,
-                        timestamp: Date.now()
-                    };
-                    
+                    this.serverHealthCache = { isHealthy: true, timestamp: Date.now() };
                     return true;
                 }
                 
@@ -489,42 +403,17 @@ export class OllamaService {
                 const models = tagsResponse.data.models;
                 const modelExists = models.some((m: any) => m.name === modelName);
                 
-                // Update model list cache while we're at it, since we already have the data
-                this.modelListCache = {
-                    models,
-                    timestamp: Date.now()
-                };
+                // Update model list cache
+                this.modelListCache = { models, timestamp: Date.now() };
                 
                 // Update server health cache
-                this.serverHealthCache = {
-                    isHealthy: true,
-                    timestamp: Date.now(),
-                    modelName
-                };
+                this.serverHealthCache = { isHealthy: true, timestamp: Date.now(), modelName };
                 
                 if (this.apiChannel) {
                     if (modelExists) {
                         this.apiChannel.appendLine(`Server is healthy and model '${modelName}' is available`);
                     } else {
-                        // Only log full model list if there aren't too many models
-                        if (models.length < 10) {
-                            const availableModels = models.map((m: any) => m.name).join(', ');
-                            this.apiChannel.appendLine(`Model '${modelName}' not found on server. Available models: ${availableModels}`);
-                        } else {
-                            this.apiChannel.appendLine(`Model '${modelName}' not found on server. ${models.length} models available.`);
-                        }
-                        
-                        // Check if there's a similar model name (to help with typos)
-                        const similarModels = models
-                            .map((m: any) => m.name)
-                            .filter((name: string) => 
-                                name.includes(modelName?.split(':')[0] || '') || 
-                                modelName?.includes(name.split(':')[0] || '')
-                            );
-                        
-                        if (similarModels.length > 0) {
-                            this.apiChannel.appendLine(`Similar models found: ${similarModels.join(', ')}`);
-                        }
+                        this.apiChannel.appendLine(`Model '${modelName}' not found on server.`);
                     }
                 }
                 
@@ -533,7 +422,6 @@ export class OllamaService {
                 return true;
                 
             } catch (error) {
-                // Log the error
                 if (this.apiChannel) {
                     this.apiChannel.appendLine(`Server health check failed (attempt ${attemptCount}/${maxAttempts}): ${error instanceof Error ? error.message : String(error)}`);
                 }
@@ -547,19 +435,12 @@ export class OllamaService {
                     continue;
                 }
                 
-                // We've exhausted all attempts, update cache with failure
-                this.serverHealthCache = {
-                    isHealthy: false,
-                    timestamp: Date.now(),
-                    modelName
-                };
-                
-                // Rethrow the error
+                // Update cache with failure
+                this.serverHealthCache = { isHealthy: false, timestamp: Date.now(), modelName };
                 throw error;
             }
         }
         
-        // We should never reach here due to the while loop, but TypeScript needs a return
         return false;
     }
     
@@ -568,23 +449,14 @@ export class OllamaService {
             const platform = os.platform();
             console.log(`🚀 Auto-starting Ollama on ${platform}`);
             
-            // Log to output channels
             if (this.serviceChannel) {
                 this.serviceChannel.appendLine(`\n🚀 AUTO-STARTING OLLAMA SERVER on ${platform}`);
-                this.serviceChannel.appendLine(`Time: ${new Date().toISOString()}`);
-                this.serviceChannel.appendLine(`Auto-start setting: ${vscode.workspace.getConfiguration('ollama').get('autoStartServer', true)}`);
-                this.serviceChannel.show(true); // Show with focus to make sure user sees this
-            }
-            
-            if (this.apiChannel) {
-                this.apiChannel.appendLine(`\n🚀 Auto-starting Ollama API server on ${platform}`);
-                this.apiChannel.appendLine(`Time: ${new Date().toISOString()}`);
+                this.serviceChannel.show(true);
             }
             
             let ollamaProcess: child_process.ChildProcess | null = null;
             
             if (platform === 'win32') {
-                // Start Ollama on Windows
                 const ollamaPath = path.join(process.env['ProgramFiles'] || 'C:\\Program Files', 'Ollama', 'ollama.exe');
                 console.log(`Starting Ollama from: ${ollamaPath}`);
                 
@@ -593,121 +465,58 @@ export class OllamaService {
                     this.serviceChannel.appendLine(`Command: ${ollamaPath} serve`);
                 }
                 
-                // Create a more detailed spawn with logging
                 ollamaProcess = child_process.spawn(ollamaPath, ['serve'], {
                     detached: true,
-                    stdio: ['ignore', 'pipe', 'pipe'], // Capture stdout and stderr
+                    stdio: ['ignore', 'pipe', 'pipe'],
                     windowsHide: true
                 });
-                
-                // Unref process to allow VS Code to exit even if Ollama is still running
-                ollamaProcess.unref();
-                
-                // Log stdout and stderr for debugging
-                if (ollamaProcess.stdout) {
-                    ollamaProcess.stdout.on('data', (data) => {
-                        const output = data.toString().trim();
-                        console.log(`Ollama output: ${output}`);
-                        if (this.serviceChannel) {
-                            this.serviceChannel.appendLine(`[STDOUT] ${output}`);
-                        }
-                    });
-                }
-                
-                if (ollamaProcess.stderr) {
-                    ollamaProcess.stderr.on('data', (data) => {
-                        const error = data.toString().trim();
-                        console.error(`Ollama error: ${error}`);
-                        if (this.serviceChannel) {
-                            this.serviceChannel.appendLine(`[STDERR] ${error}`);
-                        }
-                    });
-                }
-                
-                // Log process events
-                ollamaProcess.on('error', (err) => {
-                    console.error(`Failed to start Ollama process: ${err.message}`);
-                    if (this.serviceChannel) {
-                        this.serviceChannel.appendLine(`❌ ERROR: Failed to start Ollama process: ${err.message}`);
-                    }
-                });
-                
-                ollamaProcess.on('exit', (code, signal) => {
-                    if (code !== null) {
-                        console.log(`Ollama process exited with code ${code}`);
-                        if (this.serviceChannel) {
-                            this.serviceChannel.appendLine(`⚠️ Ollama process exited with code ${code}`);
-                        }
-                    } else if (signal !== null) {
-                        console.log(`Ollama process was killed with signal ${signal}`);
-                        if (this.serviceChannel) {
-                            this.serviceChannel.appendLine(`⚠️ Ollama process was killed with signal ${signal}`);
-                        }
-                    }
-                });
             } else {
-                // Start Ollama on macOS or Linux
                 console.log('Starting Ollama using "ollama serve"');
                 
                 if (this.serviceChannel) {
                     this.serviceChannel.appendLine(`Starting Ollama using terminal command: ollama serve`);
                 }
                 
-                // Create a more detailed spawn with logging
                 ollamaProcess = child_process.spawn('ollama', ['serve'], {
                     detached: true,
-                    stdio: ['ignore', 'pipe', 'pipe'], // Capture stdout and stderr
+                    stdio: ['ignore', 'pipe', 'pipe'],
                 });
-                
-                // Unref process to allow VS Code to exit even if Ollama is still running
-                ollamaProcess.unref();
-                
-                // Log stdout and stderr for debugging
-                if (ollamaProcess.stdout) {
-                    ollamaProcess.stdout.on('data', (data) => {
-                        const output = data.toString().trim();
-                        console.log(`Ollama output: ${output}`);
-                        if (this.serviceChannel) {
-                            this.serviceChannel.appendLine(`[STDOUT] ${output}`);
-                        }
-                    });
-                }
-                
-                if (ollamaProcess.stderr) {
-                    ollamaProcess.stderr.on('data', (data) => {
-                        const error = data.toString().trim();
-                        console.error(`Ollama error: ${error}`);
-                        if (this.serviceChannel) {
-                            this.serviceChannel.appendLine(`[STDERR] ${error}`);
-                        }
-                    });
-                }
-                
-                // Log process events
-                ollamaProcess.on('error', (err) => {
-                    console.error(`Failed to start Ollama process: ${err.message}`);
+            }
+            
+            // Unref process to allow VS Code to exit even if Ollama is still running
+            ollamaProcess.unref();
+            
+            // Setup output listeners
+            if (ollamaProcess.stdout) {
+                ollamaProcess.stdout.on('data', (data) => {
+                    const output = data.toString().trim();
+                    console.log(`Ollama output: ${output}`);
                     if (this.serviceChannel) {
-                        this.serviceChannel.appendLine(`❌ ERROR: Failed to start Ollama process: ${err.message}`);
-                    }
-                });
-                
-                ollamaProcess.on('exit', (code, signal) => {
-                    if (code !== null) {
-                        console.log(`Ollama process exited with code ${code}`);
-                        if (this.serviceChannel) {
-                            this.serviceChannel.appendLine(`⚠️ Ollama process exited with code ${code}`);
-                        }
-                    } else if (signal !== null) {
-                        console.log(`Ollama process was killed with signal ${signal}`);
-                        if (this.serviceChannel) {
-                            this.serviceChannel.appendLine(`⚠️ Ollama process was killed with signal ${signal}`);
-                        }
+                        this.serviceChannel.appendLine(`[STDOUT] ${output}`);
                     }
                 });
             }
             
+            if (ollamaProcess.stderr) {
+                ollamaProcess.stderr.on('data', (data) => {
+                    const error = data.toString().trim();
+                    console.error(`Ollama error: ${error}`);
+                    if (this.serviceChannel) {
+                        this.serviceChannel.appendLine(`[STDERR] ${error}`);
+                    }
+                });
+            }
+            
+            // Log process events
+            ollamaProcess.on('error', (err) => {
+                console.error(`Failed to start Ollama process: ${err.message}`);
+                if (this.serviceChannel) {
+                    this.serviceChannel.appendLine(`❌ ERROR: Failed to start Ollama process: ${err.message}`);
+                }
+            });
+            
             // Report to user that we're waiting for Ollama to start
-            vscode.window.withProgress({
+            return await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
                 title: "🚀 Auto-Starting Ollama Server",
                 cancellable: false
@@ -739,9 +548,7 @@ export class OllamaService {
                         const response = await axios.get(`${this.baseUrl}/api/tags`, { 
                             timeout: 3000,
                             validateStatus: null,
-                            headers: {
-                                'Accept': 'application/json'
-                            },
+                            headers: { 'Accept': 'application/json' },
                             proxy: false
                         });
                         
@@ -806,20 +613,6 @@ export class OllamaService {
                 return isRunning;
             });
             
-            // One final check to return the status
-            try {
-                const response = await axios.get(`${this.baseUrl}/api/tags`, { 
-                    timeout: 3000,
-                    validateStatus: null,
-                    headers: {
-                        'Accept': 'application/json'
-                    },
-                    proxy: false
-                });
-                return response.status === 200;
-            } catch (e) {
-                return false;
-            }
         } catch (e) {
             console.error(`Error starting Ollama process: ${e instanceof Error ? e.message : String(e)}`);
             vscode.window.showErrorMessage(`Failed to start Ollama: ${e instanceof Error ? e.message : String(e)}`);
@@ -849,19 +642,14 @@ export class OllamaService {
                 });
                 
                 if (selectedModel) {
-                    // Show progress for downloading the model
                     await vscode.window.withProgress({
                         location: vscode.ProgressLocation.Notification,
                         title: `Downloading ${selectedModel.label} model...`,
                         cancellable: false
                     }, async (progress) => {
                         try {
-                            // Start the model pull process
                             progress.report({ message: 'Downloading and installing model...' });
-                            
-                            // Execute the ollama pull command
                             await this.pullModel(selectedModel.label);
-                            
                             vscode.window.showInformationMessage(`Successfully installed ${selectedModel.label} model!`);
                         } catch (error) {
                             vscode.window.showErrorMessage(`Failed to install model: ${error instanceof Error ? error.message : String(error)}`);
@@ -891,7 +679,6 @@ export class OllamaService {
             progressReporter = progress;
             progress.report({ increment: 0, message: 'Preparing download...' });
             
-            // Set up cancellation
             token.onCancellationRequested(() => {
                 cancelRequested = true;
                 vscode.window.showInformationMessage(`Download of ${modelName} was cancelled`);
@@ -901,19 +688,10 @@ export class OllamaService {
             return progressPromise;
         });
         
-        // Create a timeout for the initial connection
-        const initialConnectionTimeout = setTimeout(() => {
-            if (progressReporter && !cancelRequested) {
-                progressReporter.report({ 
-                    message: 'Connecting to Ollama server...' 
-                });
-            }
-        }, 2000);
-        
         try {
             // Use the Ollama API to pull the model
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 1800000); // 30-minute timeout for very large models
+            const timeoutId = setTimeout(() => controller.abort(), 1800000); // 30-minute timeout
             
             // Track download stats
             let startTime = Date.now();
@@ -922,9 +700,6 @@ export class OllamaService {
             let totalDownloaded = 0;
             let downloadSpeed = 0;
             let estimatedTimeRemaining = '';
-            
-            // Clear initial connection timeout
-            clearTimeout(initialConnectionTimeout);
             
             const response = await axios.post(`${this.baseUrl}/api/pull`, {
                 name: modelName,
@@ -1008,13 +783,7 @@ export class OllamaService {
                 
                 try {
                     const text = chunk.toString();
-                    
-                    // Log partial output for debugging
-                    if (text.length > 100) {
-                        console.log(`Model download progress: ${text.substring(0, 100)}...`);
-                    } else {
-                        console.log(`Model download progress: ${text}`);
-                    }
+                    console.log(`Model download progress: ${text.length > 100 ? text.substring(0, 100) + '...' : text}`);
                     
                     if (progressReporter) {
                         try {
@@ -1051,17 +820,6 @@ export class OllamaService {
                                             message: `Downloading model: ${downloadedMB}MB / ${totalMB}MB (${percent}%)`
                                         });
                                     }
-                                    
-                                    // Extract progress percentage as fallback
-                                    if (!data.completed && !data.total) {
-                                        const progressMatch = text.match(/([0-9.]+)%/);
-                                        if (progressMatch) {
-                                            const percent = parseFloat(progressMatch[1]);
-                                            progressReporter.report({
-                                                message: `${currentStep}: ${percent.toFixed(1)}%`
-                                            });
-                                        }
-                                    }
                                 } catch (parseError) {
                                     // Not valid JSON or couldn't parse the line, that's fine
                                 }
@@ -1089,38 +847,10 @@ export class OllamaService {
                 });
             });
             
-            if (!cancelRequested) {
-                // Show final success message with model size
-                try {
-                    const models = await this.listModels();
-                    const downloadedModel = models.find(m => m.name === modelName);
-                    
-                    if (downloadedModel) {
-                        const sizeGB = (downloadedModel.size / (1024 * 1024 * 1024)).toFixed(2);
-                        vscode.window.showInformationMessage(
-                            `Successfully installed model ${modelName} (${sizeGB} GB)`,
-                            'Use Now'
-                        ).then(selection => {
-                            if (selection === 'Use Now') {
-                                vscode.commands.executeCommand('vscode-ollama.runModel');
-                            }
-                        });
-                    } else {
-                        vscode.window.showInformationMessage(`Successfully installed model ${modelName}`);
-                    }
-                } catch (e) {
-                    vscode.window.showInformationMessage(`Successfully installed model ${modelName}`);
-                }
-            }
-            
             // Resolve the progress
             if (progressResolver) progressResolver();
             
-            return;
         } catch (error) {
-            // Clear initial connection timeout if it's still active
-            clearTimeout(initialConnectionTimeout);
-            
             // Resolve the progress to dismiss it
             if (progressResolver) progressResolver();
             
@@ -1163,9 +893,6 @@ export class OllamaService {
         const now = Date.now();
         if (this.modelListCache && (now - this.modelListCache.timestamp < this.CACHE_TTL)) {
             console.log('Using cached model list');
-            if (this.apiChannel) {
-                this.apiChannel.appendLine('Using cached model list (TTL: 30s)');
-            }
             return this.modelListCache.models;
         }
     
@@ -1175,7 +902,7 @@ export class OllamaService {
             return [];
         }
         
-        // Use retry pattern for better resilience against network issues
+        // Use retry pattern for better resilience
         const maxRetries = 3;
         let retryCount = 0;
         let lastError = null;
@@ -1189,18 +916,12 @@ export class OllamaService {
                 }
                 
                 const response = await axios.get(`${this.baseUrl}/api/tags`, {
-                    timeout: 8000, // Increased timeout for better reliability
-                    validateStatus: null, // Allow any status code to be returned for better error handling
-                    headers: { 
-                        'Cache-Control': 'no-cache', 
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    // Disable proxy to avoid potential network issues
+                    timeout: 8000,
+                    validateStatus: null,
+                    headers: { 'Cache-Control': 'no-cache', 'Accept': 'application/json' },
                     proxy: false
                 });
                 
-                // Log the status and response for diagnostics
                 console.log(`Ollama API response status: ${response.status}`);
                 
                 if (response.status !== 200) {
@@ -1215,10 +936,7 @@ export class OllamaService {
                 console.log(`Found ${models.length} models`);
                 
                 // Cache the model list
-                this.modelListCache = {
-                    models,
-                    timestamp: Date.now()
-                };
+                this.modelListCache = { models, timestamp: Date.now() };
                 
                 // Check if models need to be installed
                 await this.checkAndSuggestModels(models);
@@ -1248,30 +966,11 @@ export class OllamaService {
             }
         }
                 
-        // If we get here, all retries failed
-        // Enhanced error reporting
-        let errorMessage = '';
-        const error = lastError;
+        // If all retries failed, show a helpful error message
+        console.error('Ollama API error:', lastError);
         
-        if (axios.isAxiosError(error)) {
-            errorMessage = `Network error: ${error.message}`;
-            if (error.response) {
-                errorMessage += ` (Status: ${error.response.status})`;
-                if (error.response.data) {
-                    errorMessage += ` Server response: ${JSON.stringify(error.response.data)}`;
-                }
-            } else if (error.request) {
-                errorMessage += ` (No response received, request was sent)`;
-            }
-        } else {
-            errorMessage = `Error: ${error instanceof Error ? error.message : String(error)}`;
-        }
-        
-        console.error('Ollama API error:', errorMessage);
-        
-        // Show a more helpful error message with diagnostic information
         vscode.window.showErrorMessage(
-            `Failed to list Ollama models: ${errorMessage}. Please check if Ollama is running and check the developer console for details.`, 
+            `Failed to list Ollama models. Please check if Ollama is running.`, 
             'Retry', 
             'Check Ollama'
         ).then(selection => {
@@ -1291,15 +990,12 @@ export class OllamaService {
         return [];
     }
 
-    // Add missing method signatures for API compatibility
-
     async generateCompletion(model: string, prompt: string): Promise<string> {
         console.log(`Generating completion with model: ${model}, prompt length: ${prompt.length} chars`);
         
         try {
-            // Check if Ollama is running and healthy
+            // Check if Ollama is running
             try {
-                // Check server health more thoroughly before proceeding
                 await this.checkServerHealth(model);
             } catch (checkError) {
                 if (this.apiChannel) {
@@ -1307,31 +1003,8 @@ export class OllamaService {
                     this.apiChannel.appendLine('Attempting to start or restart Ollama service...');
                 }
                 
-                // If Ollama is not running or not healthy, try to start it
-                console.log("Ollama API check failed, attempting to start Ollama service");
                 await this.startOllamaProcess();
-                
-                // More generous delay to allow Ollama to start and load models
                 await new Promise(resolve => setTimeout(resolve, 3000));
-                
-                // Verify server is actually responding after restart
-                try {
-                    await axios.get(`${this.baseUrl}/api/tags`, { 
-                        timeout: 3000, 
-                        headers: {
-                            'Accept': 'application/json'
-                        },
-                        proxy: false
-                    });
-                    if (this.apiChannel) {
-                        this.apiChannel.appendLine('Successfully started Ollama service');
-                    }
-                } catch (secondCheckError) {
-                    if (this.apiChannel) {
-                        this.apiChannel.appendLine(`Failed to start Ollama service: ${secondCheckError instanceof Error ? secondCheckError.message : String(secondCheckError)}`);
-                    }
-                    // Still proceed with the request - will fail properly with clear error if server is down
-                }
             }
             
             console.log(`Sending request to: ${this.baseUrl}/api/generate (non-streaming)`);
@@ -1342,12 +1015,9 @@ export class OllamaService {
                     stream: false
                 }, 
                 {
-                    timeout: 30000, // 30 second timeout - fail faster if no response
-                    validateStatus: status => status === 200, // Only accept 200 status
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
+                    timeout: 30000,
+                    validateStatus: status => status === 200,
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
                     proxy: false
                 }
             );
@@ -1360,7 +1030,6 @@ export class OllamaService {
             console.log('Generation completed successfully');
             return response.data.response;
         } catch (error) {
-            // Enhanced error reporting
             let errorMessage = '';
             if (axios.isAxiosError(error)) {
                 errorMessage = `Network error: ${error.message}`;
@@ -1369,7 +1038,6 @@ export class OllamaService {
                     console.error('Response error data:', error.response.data);
                     errorMessage += ` (Status: ${error.response.status})`;
                     
-                    // Check for specific error conditions
                     if (error.response.status === 404) {
                         errorMessage += `. Model '${model}' might not be installed. Try installing it first.`;
                     } else if (error.response.status === 500) {
@@ -1407,10 +1075,6 @@ export class OllamaService {
             timeoutSeconds?: number
         }
     ): Promise<void> {
-        // Record the start time
-        const startTime = Date.now();
-        console.log(`Streaming completion with model: ${model}, prompt length: ${prompt.length} chars`);
-        
         // Get configuration with defaults
         const maxTokens = options?.maxTokens || 
             vscode.workspace.getConfiguration('ollama').get('maxResponseTokens') as number || 
@@ -1422,58 +1086,36 @@ export class OllamaService {
             
         const timeoutSeconds = options?.timeoutSeconds || 
             vscode.workspace.getConfiguration('ollama').get('requestTimeout') as number || 
-            90; // 90 second default timeout
+            90;
         
         // Stream state management
-        let responseTimeoutId: NodeJS.Timeout | null = null;
-        let lastResponseTime = Date.now();
-        let hasReceivedFirstChunk = false;
-        let hasSentThinkingMessage = false;
         let abortController = new AbortController();
         
         try {
-            // Send initial thinking message only once
-            if (!hasSentThinkingMessage) {
-                onChunk(`_Thinking..._`);
-                hasSentThinkingMessage = true;
-            }
+            // Initial thinking message
+            onChunk(`_Thinking..._`);
             
-            // Quick check if model is available before proceeding
-            await this.preflightModelCheck(model);
+            // Quick check if model is available
+            await this.checkServerHealth(model);
             
-            // Prepare prompt with length limit to prevent issues
-            const truncatedPrompt = this.prepareTruncatedPrompt(prompt);
+            // Truncate prompt to prevent issues
+            const truncatedPrompt = this.truncatePrompt(prompt);
             
-            // Configure parameters with optimized settings
-            const requestParams = this.prepareRequestParams(model, truncatedPrompt, {
-                maxTokens,
-                temperature
-            });
-            
-            // Set up timeout monitoring for better responsiveness
-            const setupResponseTimeout = () => {
-                if (responseTimeoutId) clearTimeout(responseTimeoutId);
-                
-                responseTimeoutId = setTimeout(() => {
-                    const timeElapsed = (Date.now() - lastResponseTime) / 1000;
-                    console.warn(`Response timeout: No chunks for ${timeElapsed.toFixed(1)}s`);
-                    
-                    if (this.apiChannel) {
-                        this.apiChannel.appendLine(`WARNING: No response chunks for ${timeElapsed.toFixed(1)}s`);
-                    }
-                    
-                    if (!hasReceivedFirstChunk) {
-                        const errorMsg = `Ollama server is not responding. The server may be overloaded.`;
-                        console.error(errorMsg);
-                        onChunk(`\n\n_Error: ${errorMsg}_`);
-                    }
-                }, Math.min(8000, timeoutSeconds * 500)); // Quicker feedback (max 8s)
+            // Configure request parameters
+            const requestParams = {
+                model,
+                prompt: truncatedPrompt,
+                stream: true,
+                options: {
+                    num_predict: Math.min(maxTokens, 4096),
+                    temperature: temperature,
+                    top_k: 40,
+                    top_p: 0.9,
+                    repeat_penalty: 1.1
+                }
             };
             
-            // Initial timeout setup
-            setupResponseTimeout();
-            
-            // Make API request with abort controller for cancellation support
+            // Make API request with abort controller
             const response = await axios.post(
                 `${this.baseUrl}/api/generate`, 
                 requestParams, 
@@ -1481,7 +1123,6 @@ export class OllamaService {
                     responseType: 'stream',
                     timeout: 30000, // 30s initial connection timeout
                     signal: abortController.signal,
-                    maxContentLength: 10 * 1024 * 1024, // 10MB limit for better memory usage
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
@@ -1490,30 +1131,20 @@ export class OllamaService {
                 }
             );
             
-            // Clear the initial thinking message before real content arrives
-            if (hasSentThinkingMessage) {
-                onChunk('');
-                hasSentThinkingMessage = false;
-            }
+            // Clear the initial thinking message
+            onChunk('');
             
-            // Error handling and chunk processing
+            // Process the stream response
             if (response.data) {
                 // Handle stream errors
                 response.data.on('error', (err: Error) => {
                     console.error('Stream error:', err);
-                    if (this.apiChannel) {
-                        this.apiChannel.appendLine(`Stream error: ${err.message}`);
-                    }
                     onChunk(`\n\n_Error in stream: ${err.message}_`);
                 });
                 
-                // Efficiently process chunks with JSON Line parsing
+                // Define handler for each chunk
                 const processChunk = (chunk: Buffer) => {
                     try {
-                        lastResponseTime = Date.now();
-                        hasReceivedFirstChunk = true;
-                        setupResponseTimeout(); // Reset timeout
-                        
                         const text = chunk.toString();
                         const lines = text.split('\n').filter(Boolean);
                         
@@ -1525,15 +1156,9 @@ export class OllamaService {
                                 if (data.response) {
                                     onChunk(data.response);
                                 }
-                                
-                                // Handle completion
-                                if (data.done === true) {
-                                    this.cleanupTimeouts(responseTimeoutId);
-                                    responseTimeoutId = null;
-                                }
                             } catch (parseError) {
-                                // Log but continue processing - don't let one bad chunk stop everything
-                                console.warn('JSON parse error in chunk, continuing:', parseError);
+                                // Log but continue processing
+                                console.warn('JSON parse error in chunk, continuing');
                             }
                         }
                     } catch (error) {
@@ -1544,26 +1169,28 @@ export class OllamaService {
                 // Set up data handler
                 response.data.on('data', processChunk);
                 
-                // Wait for stream completion with timeout protection
-                await this.waitForStreamCompletion(
-                    response.data,
-                    {
-                        timeoutSeconds,
-                        startTime,
-                        hasReceivedFirstChunk,
-                        onError: (msg) => onChunk(`\n\n_Error: ${msg}_`),
-                        onTimeout: (msg) => onChunk(`\n\n_${msg}_`)
-                    }
-                );
-                
-                // Final cleanup
-                this.cleanupTimeouts(responseTimeoutId);
+                // Wait for stream completion
+                await new Promise<void>((resolve, reject) => {
+                    // Set up hard timeout
+                    const hardTimeout = setTimeout(() => {
+                        console.log('Hard timeout reached');
+                        onChunk(`\n\n_Maximum streaming time exceeded. The model may be generating too much content._`);
+                        resolve();
+                    }, Math.min(45000, timeoutSeconds * 1000));
+                    
+                    // Set up event handlers
+                    response.data.on('end', () => {
+                        clearTimeout(hardTimeout);
+                        resolve();
+                    });
+                    
+                    response.data.on('error', (err: Error) => {
+                        clearTimeout(hardTimeout);
+                        reject(err);
+                    });
+                });
             }
         } catch (error) {
-            // Cleanup on error
-            this.cleanupTimeouts(responseTimeoutId);
-            
-            // Format error for display
             const errorMessage = this.formatStreamingError(error, timeoutSeconds);
             
             console.error('Ollama streaming error:', errorMessage);
@@ -1571,135 +1198,21 @@ export class OllamaService {
                 this.apiChannel.appendLine(`Streaming error: ${errorMessage}`);
             }
             
-            // Send formatted error to UI
             onChunk(`\n\n_Error: ${errorMessage}_`);
-            
             throw error;
         }
     }
     
-    // Helper methods for streamCompletion
+    // Helper methods
     
-    private async preflightModelCheck(model: string): Promise<void> {
-        try {
-            await this.checkServerHealth(model, { retry: true, retryCount: 1 });
-        } catch (error) {
-            console.log("Server health check failed, attempting recovery");
-            
-            if (this.apiChannel) {
-                this.apiChannel.appendLine(`Health check failed: ${error instanceof Error ? error.message : String(error)}`);
-                this.apiChannel.appendLine(`Attempting to start Ollama service...`);
-            }
-            
-            // Try to start Ollama and wait for it
-            await this.startOllamaProcess();
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Quick verification (but continue even if it fails)
-            try {
-                await this.checkServerHealth(model, { retry: false });
-            } catch (secondError) {
-                console.warn("Could not verify server after restart, continuing anyway");
-            }
-        }
-    }
-    
-    private prepareTruncatedPrompt(prompt: string): string {
-        // Keep prompt size reasonable to avoid timeouts
-        const MAX_PROMPT_LENGTH = 8000; // Based on testing, this is a safe limit
+    private truncatePrompt(prompt: string): string {
+        const MAX_PROMPT_LENGTH = 8000;
         
         if (prompt.length > MAX_PROMPT_LENGTH) {
             return prompt.substring(0, MAX_PROMPT_LENGTH) + 
                 `\n\n... [content truncated to ${MAX_PROMPT_LENGTH} characters for performance] ...`;
         }
         return prompt;
-    }
-    
-    private prepareRequestParams(model: string, prompt: string, opts: any): any {
-        return {
-            model,
-            prompt,
-            stream: true,
-            options: {
-                num_predict: Math.min(opts.maxTokens || 2048, 4096), // Reasonable token limit
-                temperature: opts.temperature || 0.7,      // Temperature from opts or default
-                top_k: 40,                                 // Default top_k
-                top_p: 0.9,                               // Default top_p
-                repeat_penalty: 1.1                       // Light penalty for repetition
-            }
-        };
-    }
-    
-    private async waitForStreamCompletion(
-        stream: any, 
-        options: {
-            timeoutSeconds: number,
-            startTime: number,
-            hasReceivedFirstChunk: boolean,
-            onError: (msg: string) => void,
-            onTimeout: (msg: string) => void
-        }
-    ): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            // Hard limit to prevent excessive streaming
-            const hardTimeLimit = Math.min(45000, options.timeoutSeconds * 1000);
-            
-            // Timeout for initial response
-            const initialResponseTimeout = Math.min(10000, options.timeoutSeconds * 1000 / 3);
-            
-            // Set up timeout handlers
-            const timeouts = {
-                hardTimeout: setTimeout(() => {
-                    const totalTime = (Date.now() - options.startTime) / 1000;
-                    const msg = `Maximum streaming time (${totalTime.toFixed(1)}s) exceeded`;
-                    
-                    console.log('Hard timeout reached');
-                    options.onTimeout(`${msg}. The model may be generating too much content.`);
-                    
-                    // Just resolve to end gracefully
-                    resolve();
-                }, hardTimeLimit),
-                
-                initialTimeout: !options.hasReceivedFirstChunk ? setTimeout(() => {
-                    if (!options.hasReceivedFirstChunk) {
-                        const msg = `No response received after ${initialResponseTimeout/1000}s`;
-                        console.error(msg);
-                        reject(new Error(msg));
-                    }
-                }, initialResponseTimeout) : null
-            };
-            
-            // Utility to clean up all timeouts
-            const clearAllTimeouts = () => {
-                if (timeouts.hardTimeout) clearTimeout(timeouts.hardTimeout);
-                if (timeouts.initialTimeout) clearTimeout(timeouts.initialTimeout);
-            };
-            
-            // Set up event handlers
-            stream.on('end', () => {
-                clearAllTimeouts();
-                resolve();
-            });
-            
-            stream.on('error', (err: Error) => {
-                clearAllTimeouts();
-                reject(err);
-            });
-            
-            // First chunk received - clear initial timeout
-            stream.on('data', () => {
-                if (timeouts.initialTimeout) {
-                    clearTimeout(timeouts.initialTimeout);
-                    timeouts.initialTimeout = null;
-                }
-            });
-        });
-    }
-    
-    private cleanupTimeouts(timeoutId: NodeJS.Timeout | null): void {
-        if (timeoutId) {
-            clearTimeout(timeoutId);
-        }
     }
     
     private formatStreamingError(error: any, timeoutSeconds: number): string {

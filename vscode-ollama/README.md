@@ -45,6 +45,18 @@ Run [Ollama](https://ollama.ai) models directly from VS Code for AI-powered code
 
 See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues and solutions.
 
+## Release Notes
+
+See [CHANGELOG.md](CHANGELOG.md) for all updates and changes.
+
+### 0.1.0
+
+- Performance optimizations for faster response times
+- Better handling of large files and project context
+- Improved code selection handling
+- Fixed automatic activation on startup
+- Better error recovery and timeout handling
+
 ## License
 
 [MIT](LICENSE)

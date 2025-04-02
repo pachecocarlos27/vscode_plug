@@ -799,6 +799,14 @@ export class OllamaPanel {
         // Record the user message
         await this.recordMessage('user', promptText);
         
+        // Get fresh project context before sending prompt
+        const projectContext = await this.getProjectContext(true); // Force refresh
+        console.log('Current project context for prompt:', JSON.stringify({
+            hasActiveFile: Boolean(projectContext.activeFile),
+            hasSelection: Boolean(projectContext.selection),
+            selectionLength: projectContext.selection ? projectContext.selection.length : 0
+        }));
+        
         // Send prompt to the webview with context flag enabled
         this.panel.webview.postMessage({
             command: 'injectPrompt', 
@@ -900,7 +908,7 @@ export class OllamaPanel {
         }
     }
     
-    private async notifyContextChange() {
+    public async notifyContextChange() {
         // Throttle updates to avoid spamming
         if (this._throttleTimeout) {
             clearTimeout(this._throttleTimeout);
@@ -912,8 +920,14 @@ export class OllamaPanel {
                 command: 'projectContextChanged',
                 context
             });
+            
+            // Log context update for debugging
+            console.log('Context updated with selection:', 
+                Boolean(context.selection), 
+                context.selection ? `(${context.selection.length} chars)` : '');
+                
             this._throttleTimeout = null;
-        }, 1000);
+        }, 300); // Reduced throttle time for more responsive updates
     }
     
     private _throttleTimeout: NodeJS.Timeout | null = null;
@@ -924,7 +938,7 @@ export class OllamaPanel {
     private readonly MAX_FILES = 300; // Maximum number of files to include
     private readonly MAX_FILE_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days - only include recently modified files
     
-    private async getProjectContext(): Promise<ProjectContext> {
+    private async getProjectContext(forceRefresh = false): Promise<ProjectContext> {
         const context: ProjectContext = {
             files: [],
             activeFile: null,
@@ -936,9 +950,9 @@ export class OllamaPanel {
         if (vscode.workspace.workspaceFolders) {
             context.workspaceFolders = vscode.workspace.workspaceFolders.map(folder => folder.uri.fsPath);
             
-            // Use file cache if available and recent
+            // Use file cache if available and recent, unless force refresh requested
             const now = Date.now();
-            if (this.fileCache && (now - this.fileCache.timestamp < this.FILE_CACHE_TTL)) {
+            if (!forceRefresh && this.fileCache && (now - this.fileCache.timestamp < this.FILE_CACHE_TTL)) {
                 context.files = [...this.fileCache.files]; // Clone the array
                 console.log(`Using cached file list (${context.files.length} files)`);
             } else {
