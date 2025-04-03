@@ -2,7 +2,7 @@
   "name": "vscode-ollama-enhanced",
   "displayName": "Ollama Enhanced for VS Code",
   "description": "Enhanced Ollama integration for VS Code with embedded models, improved performance, code selection handling, and project-aware AI assistance",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "CarlosPacheco",
   "private": true,
   "license": "MIT",
@@ -248,7 +248,7 @@
     "webpack-cli": "^4.9.2"
   },
   "dependencies": {
-    "axios": "^0.27.2"
+    "axios": "^1.6.7"
   },
   "repository": {
     "type": "git",

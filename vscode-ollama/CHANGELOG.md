@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.0] - 2025-04-03
+
+### Security
+- Updated axios dependency to v1.6.7 to fix SSRF and Cross-Site Request Forgery vulnerabilities
+
 ## [1.0.0] - 2025-04-03
 
 ### Added
