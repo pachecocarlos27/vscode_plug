@@ -5,6 +5,11 @@
 ### Security
 - Updated axios dependency to v1.6.7 to fix SSRF and Cross-Site Request Forgery vulnerabilities
 
+### Performance
+- Combined main and embedded extensions into a single optimized package
+- Reduced package size from 25MB to 1.5MB for faster installation and loading
+- Optimized build process to exclude unnecessary files
+
 ## [1.0.0] - 2025-04-03
 
 ### Added

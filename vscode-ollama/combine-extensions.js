@@ -111,5 +111,37 @@ import * as embeddedExtension from './embedded/extension';`;
   console.log('Updated main extension');
 }
 
+// Function to ensure axios is updated to secure version in both projects
+function ensureAxiosSecureVersions() {
+  console.log('Ensuring Axios is updated to secure version in both projects...');
+  
+  // Update package.json files to use the newest Axios version
+  const mainPackageJsonPath = path.join(mainExtDir, 'package.json');
+  const embeddedPackageJsonPath = path.join(embeddedExtDir, 'package.json');
+  
+  try {
+    // Update main package.json
+    let mainPackageJson = JSON.parse(fs.readFileSync(mainPackageJsonPath, 'utf-8'));
+    if (mainPackageJson.dependencies && mainPackageJson.dependencies.axios) {
+      mainPackageJson.dependencies.axios = '^1.6.7';
+      fs.writeFileSync(mainPackageJsonPath, JSON.stringify(mainPackageJson, null, 2), 'utf-8');
+      console.log('Updated axios in main package.json to ^1.6.7');
+    }
+    
+    // Update embedded package.json
+    let embeddedPackageJson = JSON.parse(fs.readFileSync(embeddedPackageJsonPath, 'utf-8'));
+    if (embeddedPackageJson.dependencies && embeddedPackageJson.dependencies.axios) {
+      embeddedPackageJson.dependencies.axios = '^1.6.7';
+      fs.writeFileSync(embeddedPackageJsonPath, JSON.stringify(embeddedPackageJson, null, 2), 'utf-8');
+      console.log('Updated axios in embedded package.json to ^1.6.7');
+    }
+    
+    console.log('Axios versions updated successfully');
+  } catch (error) {
+    console.error('Error updating Axios versions:', error);
+  }
+}
+
 // Run the combination process
 combineExtensions();
+ensureAxiosSecureVersions();

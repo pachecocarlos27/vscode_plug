@@ -117,7 +117,11 @@
         },
         "ollamaEnhanced.mode": {
           "type": "string",
-          "enum": ["system", "embedded", "auto"],
+          "enum": [
+            "system",
+            "embedded",
+            "auto"
+          ],
           "enumDescriptions": [
             "Use system-installed Ollama only",
             "Use embedded Ollama bundled with the extension",

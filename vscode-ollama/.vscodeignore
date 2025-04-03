@@ -26,6 +26,7 @@ combine-extensions.js
 resize-icons.js
 *.vsixmanifest
 yarn.lock
+**/package-lock.json
 
 # Explicitly include distribution files
 !dist/**
