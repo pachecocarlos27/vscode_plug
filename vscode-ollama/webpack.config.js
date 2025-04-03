@@ -21,6 +21,9 @@ const config = {
   },
   devtool: 'nosources-source-map',
   externals: {
+    // Added for embedded extension
+    'fs': 'commonjs fs',
+    'path': 'commonjs path',
     vscode: 'commonjs vscode', // the vscode-module is created on-the-fly and must be excluded
     // Add other native node modules that shouldn't be bundled to reduce bundle size
     'fs': 'commonjs fs',

@@ -94,12 +94,27 @@
         },
         "ollama.filePatterns": {
           "type": "array",
-          "default": ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.py", "**/*.html", "**/*.css", "**/*.json", "**/README.md"],
+          "default": [
+            "**/*.js",
+            "**/*.ts",
+            "**/*.jsx",
+            "**/*.tsx",
+            "**/*.py",
+            "**/*.html",
+            "**/*.css",
+            "**/*.json",
+            "**/README.md"
+          ],
           "description": "File patterns to include in project context"
         },
         "ollama.excludePatterns": {
           "type": "array",
-          "default": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**"],
+          "default": [
+            "**/node_modules/**",
+            "**/dist/**",
+            "**/build/**",
+            "**/.git/**"
+          ],
           "description": "File patterns to exclude from project context"
         },
         "ollama.maxResponseTokens": {
