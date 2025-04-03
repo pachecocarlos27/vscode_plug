@@ -1,0 +1,1 @@
+d6a5f68d9233c8c5763d3748970e7ac14cd7b06c296f552df02213cf1987a1bd  vscode-ollama-enhanced-1.1.0.vsix
