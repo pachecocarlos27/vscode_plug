@@ -1,9 +1,9 @@
 {
-  "name": "vscode-ollama",
-  "displayName": "Ollama for VS Code",
-  "description": "Run Ollama models directly from VS Code - code editing, project-aware AI assistance",
-  "version": "0.1.0",
-  "publisher": "OllamaExtension",
+  "name": "vscode-ollama-enhanced",
+  "displayName": "Ollama Enhanced for VS Code",
+  "description": "Enhanced Ollama integration for VS Code with embedded models, improved performance, code selection handling, and project-aware AI assistance",
+  "version": "1.0.0",
+  "publisher": "CarlosPacheco",
   "private": true,
   "license": "MIT",
   "icon": "icons/icon-128.png",
@@ -18,109 +18,135 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onCommand:vscode-ollama.runModel",
-    "onCommand:vscode-ollama.listModels",
-    "onCommand:vscode-ollama.pullModel",
-    "onCommand:vscode-ollama.checkInstallation",
-    "onCommand:vscode-ollama.explainCode",
-    "onCommand:vscode-ollama.improveCode",
-    "onCommand:vscode-ollama.generateDocumentation",
-    "onCommand:vscode-ollama.debug",
-    "onCommand:vscode-ollama.addAsReference",
-    "onView:ollamaChat"
+    "onCommand:vscode-ollama-enhanced.runModel",
+    "onCommand:vscode-ollama-enhanced.listModels",
+    "onCommand:vscode-ollama-enhanced.pullModel",
+    "onCommand:vscode-ollama-enhanced.installEmbeddedModel",
+    "onCommand:vscode-ollama-enhanced.switchOllamaMode",
+    "onCommand:vscode-ollama-enhanced.checkInstallation",
+    "onCommand:vscode-ollama-enhanced.explainCode",
+    "onCommand:vscode-ollama-enhanced.improveCode",
+    "onCommand:vscode-ollama-enhanced.generateDocumentation",
+    "onCommand:vscode-ollama-enhanced.debug",
+    "onCommand:vscode-ollama-enhanced.addAsReference",
+    "onView:ollamaEnhancedChat"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "vscode-ollama.debug",
-        "title": "Ollama: Debug Extension"
+        "command": "vscode-ollama-enhanced.debug",
+        "title": "Ollama Enhanced: Debug Extension"
       },
       {
-        "command": "vscode-ollama.runModel",
-        "title": "Ollama: Run Model"
+        "command": "vscode-ollama-enhanced.runModel",
+        "title": "Ollama Enhanced: Run Model"
       },
       {
-        "command": "vscode-ollama.listModels",
-        "title": "Ollama: List Models"
+        "command": "vscode-ollama-enhanced.listModels",
+        "title": "Ollama Enhanced: List Models"
       },
       {
-        "command": "vscode-ollama.pullModel",
-        "title": "Ollama: Download/Install Model"
+        "command": "vscode-ollama-enhanced.pullModel",
+        "title": "Ollama Enhanced: Download/Install Model"
       },
       {
-        "command": "vscode-ollama.checkInstallation",
-        "title": "Ollama: Check Installation"
+        "command": "vscode-ollama-enhanced.installEmbeddedModel",
+        "title": "Ollama Enhanced: Install Embedded Model"
       },
       {
-        "command": "vscode-ollama.explainCode",
-        "title": "Ollama: Explain Selected Code"
+        "command": "vscode-ollama-enhanced.switchOllamaMode",
+        "title": "Ollama Enhanced: Switch Mode (System/Embedded)"
       },
       {
-        "command": "vscode-ollama.improveCode",
-        "title": "Ollama: Improve Selected Code"
+        "command": "vscode-ollama-enhanced.checkInstallation",
+        "title": "Ollama Enhanced: Check Installation"
       },
       {
-        "command": "vscode-ollama.generateDocumentation",
-        "title": "Ollama: Generate Documentation for Selection"
+        "command": "vscode-ollama-enhanced.explainCode",
+        "title": "Ollama Enhanced: Explain Selected Code"
       },
       {
-        "command": "vscode-ollama.addAsReference",
-        "title": "Ollama: Add Selection as Reference"
+        "command": "vscode-ollama-enhanced.improveCode",
+        "title": "Ollama Enhanced: Improve Selected Code"
       },
       {
-        "command": "vscode-ollama.cancelRequest",
-        "title": "Ollama: Cancel Current Request"
+        "command": "vscode-ollama-enhanced.generateDocumentation",
+        "title": "Ollama Enhanced: Generate Documentation for Selection"
+      },
+      {
+        "command": "vscode-ollama-enhanced.addAsReference",
+        "title": "Ollama Enhanced: Add Selection as Reference"
+      },
+      {
+        "command": "vscode-ollama-enhanced.cancelRequest",
+        "title": "Ollama Enhanced: Cancel Current Request"
       }
     ],
     "menus": {
       "editor/context": [
         {
           "when": "editorHasSelection",
-          "command": "vscode-ollama.explainCode",
-          "group": "1_ollama@1"
+          "command": "vscode-ollama-enhanced.explainCode",
+          "group": "1_ollama_enhanced@1"
         },
         {
           "when": "editorHasSelection",
-          "command": "vscode-ollama.improveCode",
-          "group": "1_ollama@2"
+          "command": "vscode-ollama-enhanced.improveCode",
+          "group": "1_ollama_enhanced@2"
         },
         {
           "when": "editorHasSelection",
-          "command": "vscode-ollama.generateDocumentation",
-          "group": "1_ollama@3"
+          "command": "vscode-ollama-enhanced.generateDocumentation",
+          "group": "1_ollama_enhanced@3"
         },
         {
           "when": "editorHasSelection",
-          "command": "vscode-ollama.addAsReference",
-          "group": "1_ollama@4"
+          "command": "vscode-ollama-enhanced.addAsReference",
+          "group": "1_ollama_enhanced@4"
         }
       ]
     },
     "configuration": {
-      "title": "Ollama",
+      "title": "Ollama Enhanced",
       "properties": {
-        "ollama.apiUrl": {
+        "ollamaEnhanced.apiUrl": {
           "type": "string",
           "default": "http://localhost:11434",
-          "description": "URL of the Ollama API server"
+          "description": "URL of the Ollama API server (used for system mode only)"
         },
-        "ollama.defaultModel": {
+        "ollamaEnhanced.mode": {
           "type": "string",
-          "default": "",
+          "enum": ["system", "embedded", "auto"],
+          "enumDescriptions": [
+            "Use system-installed Ollama only",
+            "Use embedded Ollama bundled with the extension",
+            "Auto-detect: use embedded if system is not available"
+          ],
+          "default": "embedded",
+          "description": "Ollama operation mode"
+        },
+        "ollamaEnhanced.defaultModel": {
+          "type": "string",
+          "default": "deepseek-coder-v2:latest",
           "description": "Default model to use when not specified"
         },
-        "ollama.includeProjectContext": {
+        "ollamaEnhanced.embeddedPort": {
+          "type": "number",
+          "default": 9527,
+          "description": "Port for embedded Ollama server (must be different from system Ollama port)"
+        },
+        "ollamaEnhanced.includeProjectContext": {
           "type": "boolean",
           "default": true,
           "description": "Automatically include project context in prompts"
         },
-        "ollama.showFileExplorer": {
+        "ollamaEnhanced.showFileExplorer": {
           "type": "boolean",
           "default": false,
           "description": "Show project file explorer panel by default"
         },
-        "ollama.filePatterns": {
+        "ollamaEnhanced.filePatterns": {
           "type": "array",
           "default": [
             "**/*.js",
@@ -135,7 +161,7 @@
           ],
           "description": "File patterns to include in project context"
         },
-        "ollama.excludePatterns": {
+        "ollamaEnhanced.excludePatterns": {
           "type": "array",
           "default": [
             "**/node_modules/**",
@@ -145,49 +171,54 @@
           ],
           "description": "File patterns to exclude from project context"
         },
-        "ollama.maxResponseTokens": {
+        "ollamaEnhanced.maxResponseTokens": {
           "type": "number",
           "default": 4096,
           "description": "Maximum number of tokens in model responses"
         },
-        "ollama.autoStartServer": {
+        "ollamaEnhanced.autoStartServer": {
           "type": "boolean",
           "default": true,
           "description": "Automatically start Ollama server if not running"
         },
-        "ollama.saveConversationHistory": {
+        "ollamaEnhanced.saveConversationHistory": {
           "type": "boolean",
           "default": true,
           "description": "Save conversation history between sessions"
         },
-        "ollama.codeActionsEnabled": {
+        "ollamaEnhanced.codeActionsEnabled": {
           "type": "boolean",
           "default": true,
           "description": "Enable code action buttons (copy, apply) in responses"
         },
-        "ollama.statusBarPolling": {
+        "ollamaEnhanced.statusBarPolling": {
           "type": "boolean",
           "default": true,
           "description": "Periodically check and update Ollama status in the status bar"
         },
-        "ollama.forceRecheck": {
+        "ollamaEnhanced.forceRecheck": {
           "type": "boolean",
           "default": false,
           "description": "Force recheck of Ollama status even if cached (for troubleshooting)"
         },
-        "ollama.temperature": {
+        "ollamaEnhanced.temperature": {
           "type": "number",
           "default": 0.7,
           "minimum": 0,
           "maximum": 2,
           "description": "Temperature setting for model generation (0.0-2.0, lower = more deterministic)"
         },
-        "ollama.requestTimeout": {
+        "ollamaEnhanced.requestTimeout": {
           "type": "number",
           "default": 90,
           "minimum": 15,
           "maximum": 300,
           "description": "Timeout in seconds for requests to the Ollama server"
+        },
+        "ollamaEnhanced.embeddedModelsAutoUpdate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically check for updates to embedded models"
         }
       }
     }
@@ -221,7 +252,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/OllamaExtension/vscode-ollama"
+    "url": "https://github.com/CarlosPacheco/vscode-ollama"
   },
   "keywords": [
     "ollama",
@@ -240,7 +271,7 @@
   ],
   "author": "Ollama Extension Team",
   "bugs": {
-    "url": "https://github.com/OllamaExtension/vscode-ollama/issues"
+    "url": "https://github.com/CarlosPacheco/vscode-ollama/issues"
   },
-  "homepage": "https://github.com/OllamaExtension/vscode-ollama#readme"
+  "homepage": "https://github.com/CarlosPacheco/vscode-ollama#readme"
 }

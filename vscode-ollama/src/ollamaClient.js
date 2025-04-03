@@ -76,39 +76,208 @@ function autoResizeTextarea() {
     promptInput.style.height = newHeight + 'px';
 }
 
+// Helper function to extract clean code from a code block
+function extractCleanCodeFromBlock(codeBlock) {
+    try {
+        // Get the raw HTML as a starting point
+        const originalHtml = codeBlock.innerHTML || '';
+        console.log("Raw code block HTML:", originalHtml);
+        
+        // Remove all HTML tags to get clean text
+        let cleanCode = originalHtml
+            .replace(/<div[^>]*class="line"[^>]*>/g, '')  // Remove line div starts with any attributes
+            .replace(/<\/div>/g, '\n')           // Replace line div ends with newlines
+            .replace(/<span[^>]*class="token[^"]*"[^>]*>|<\/span>/g, '')  // Remove all token spans thoroughly
+            .replace(/&lt;/g, '<')               // Replace HTML entities
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'");
+        
+        console.log("Cleaned code (first attempt):", cleanCode);
+        
+        // If we still have HTML issues, use a more aggressive approach
+        if (cleanCode.includes('<span') || cleanCode.includes('</span>')) {
+            // Create temporary div to handle HTML entity conversion
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = originalHtml;
+            cleanCode = tempDiv.textContent || '';
+            console.log("Using textContent fallback:", cleanCode);
+        }
+        
+        // Final cleanup - trim each line and ensure proper line endings
+        cleanCode = cleanCode.split('\n')
+            .map(line => line.trim())
+            .join('\n')
+            .trim();
+        
+        console.log("Final cleaned code:", cleanCode);
+        return cleanCode;
+    } catch (e) {
+        console.error('Error extracting clean code:', e);
+        // Absolute fallback - use textContent
+        const fallbackCode = codeBlock.textContent || '';
+        console.log("Error fallback code:", fallbackCode);
+        return fallbackCode;
+    }
+}
+
+// Handler for code block UI enhancements
+function setupCodeBlockInteractions() {
+    // Set up keyboard shortcuts for code blocks
+    document.addEventListener('keydown', function(event) {
+        // Only activate shortcuts when the chat input is not focused
+        if (document.activeElement === promptInput) {
+            return;
+        }
+        
+        // Check if we're inside a code block - find nearest pre element to active element
+        const isInCodeBlock = event.target.closest('pre') || 
+            document.activeElement.closest('pre');
+        
+        if (isInCodeBlock) {
+            // Code navigation shortcuts
+            if (event.key === 'c' && (event.ctrlKey || event.metaKey)) {
+                // Ctrl+C or Cmd+C - Copy current code block or selection
+                event.preventDefault();
+                
+                const selectedText = window.getSelection().toString();
+                if (selectedText) {
+                    // Copy selection
+                    vscode.postMessage({
+                        command: 'copyToClipboard',
+                        text: selectedText
+                    });
+                } else {
+                    // Copy entire code block
+                    const codeBlock = isInCodeBlock.querySelector('code');
+                    if (codeBlock) {
+                        const code = extractCleanCodeFromBlock(codeBlock);
+                        vscode.postMessage({
+                            command: 'copyToClipboard',
+                            text: code
+                        });
+                    }
+                }
+                
+                // Show visual feedback
+                isInCodeBlock.style.boxShadow = '0 0 0 2px var(--vscode-button-background)';
+                setTimeout(() => {
+                    isInCodeBlock.style.boxShadow = '';
+                }, 500);
+            }
+        }
+    });
+    // Use event delegation to handle clicks on code elements
+    document.addEventListener('click', function(event) {
+        // CASE 1: Handle quick copy button (pre::after element)
+        const preElement = event.target.closest('pre');
+        if (preElement) {
+            // Check if the click is in the top-left part of the pre (where the copy all button would be)
+            const rect = preElement.getBoundingClientRect();
+            const clickX = event.clientX;
+            const clickY = event.clientY;
+            
+            // If the click is within the top-left corner area
+            if (clickX < rect.left + 80 && clickY < rect.top + 25) {
+                const codeBlock = preElement.querySelector('code');
+                if (codeBlock) {
+                    const code = extractCleanCodeFromBlock(codeBlock);
+                    console.log(`Quick copying entire code block (${code.length} chars)`);
+                    
+                    // Copy the code to clipboard
+                    vscode.postMessage({
+                        command: 'copyToClipboard',
+                        text: code
+                    });
+                    
+                    // Show visual feedback
+                    preElement.style.boxShadow = '0 0 0 2px var(--vscode-button-background)';
+                    setTimeout(() => {
+                        preElement.style.boxShadow = '';
+                    }, 500);
+                    
+                    // Prevent further handling
+                    return;
+                }
+            }
+        }
+        
+        // CASE 2: Handle line copy clicks
+        const line = event.target.closest('.line');
+        if (line) {
+            // Check if the click is in the right part of the line (where the copy icon would be)
+            const rect = line.getBoundingClientRect();
+            const clickX = event.clientX;
+            
+            // If the click is within 30px of the right edge of the line
+            if (clickX > rect.right - 30) {
+                const lineContent = line.textContent || '';
+                console.log(`Copying line ${line.dataset.lineNumber}: ${lineContent}`);
+                
+                // Copy the line content to clipboard
+                vscode.postMessage({
+                    command: 'copyToClipboard',
+                    text: lineContent
+                });
+                
+                // Show visual feedback
+                const originalBackground = line.style.backgroundColor;
+                line.style.backgroundColor = 'rgba(80, 220, 100, 0.2)';
+                setTimeout(() => {
+                    line.style.backgroundColor = originalBackground;
+                }, 500);
+            }
+        }
+    });
+}
+
+// Call this function when the page loads
+document.addEventListener('DOMContentLoaded', setupCodeBlockInteractions);
+
 // Add action buttons to code blocks
 function addCodeBlockActionButtons(element) {
+    console.log(`Adding code action buttons to element:`, element);
+    
     // Find all code blocks
     const codeBlocks = element.querySelectorAll('pre code');
+    console.log(`Found ${codeBlocks.length} code blocks`);
+    
     if (!codeBlocks.length) return;
     
     // Process each code block
     codeBlocks.forEach((codeBlock, index) => {
+        console.log(`Processing code block ${index}:`, codeBlock);
+        
         const preElement = codeBlock.parentElement;
-        if (!preElement) return;
+        if (!preElement) {
+            console.warn(`No parent element found for code block ${index}`);
+            return;
+        }
         
         // Skip if we already added buttons to this block
-        if (preElement.querySelector('.code-actions')) return;
+        if (preElement.querySelector('.code-actions')) {
+            console.log(`Buttons already added to code block ${index}`);
+            return;
+        }
         
         // Create action buttons container
         const actionContainer = document.createElement('div');
         actionContainer.className = 'code-actions';
-        actionContainer.style.display = 'flex';
-        actionContainer.style.justifyContent = 'flex-end';
-        actionContainer.style.padding = '4px';
-        actionContainer.style.backgroundColor = 'var(--vscode-editor-background)';
-        actionContainer.style.borderTop = '1px solid var(--vscode-editor-lineHighlightBorder)';
         
         // Add Copy button
         const copyButton = document.createElement('button');
-        copyButton.textContent = 'Copy';
+        copyButton.textContent = '';
         copyButton.className = 'code-action-button';
-        copyButton.style.marginRight = '8px';
-        copyButton.style.fontSize = '12px';
-        copyButton.style.padding = '2px 8px';
+        // Add copy icon
+        const copyIcon = document.createElement('span');
+        copyIcon.innerHTML = '📋'; // Unicode clipboard icon
+        copyIcon.style.marginRight = '4px';
+        copyButton.appendChild(copyIcon);
+        copyButton.appendChild(document.createTextNode('Copy'));
         copyButton.addEventListener('click', () => {
-            // Get the code text
-            const code = codeBlock.textContent || '';
+            // Get the code text using our clean extraction method
+            let code = extractCleanCodeFromBlock(codeBlock);
             
             // Copy to clipboard using VS Code's clipboard
             vscode.postMessage({
@@ -117,40 +286,120 @@ function addCodeBlockActionButtons(element) {
             });
             
             // Show feedback
-            const originalText = copyButton.textContent;
-            copyButton.textContent = 'Copied!';
+            const originalHTML = copyButton.innerHTML;
+            copyButton.innerHTML = '✓ Copied!';
             setTimeout(() => {
-                copyButton.textContent = originalText;
+                copyButton.innerHTML = originalHTML;
             }, 2000);
+        });
+        
+        // Add Save to File button
+        const saveButton = document.createElement('button');
+        saveButton.textContent = '';
+        saveButton.className = 'code-action-button';
+        
+        // Add save icon
+        const saveIcon = document.createElement('span');
+        saveIcon.innerHTML = '💾'; // Unicode save icon
+        saveIcon.style.marginRight = '4px';
+        saveButton.appendChild(saveIcon);
+        saveButton.appendChild(document.createTextNode('Save as File'));
+        saveButton.addEventListener('click', () => {
+            // Get the code text using our clean extraction method
+            let code = extractCleanCodeFromBlock(codeBlock);
+            
+            // Get language from the code block
+            const language = codeBlock.className.replace('language-', '').trim();
+            
+            console.log(`Save button clicked, sending code (${code.length} chars) with language: ${language}`);
+            
+            // Send to VS Code to save as a file - no confirmation needed in production
+            {
+                // Send to VS Code to save as a file
+                vscode.postMessage({
+                    command: 'saveCodeToFile',
+                    text: code,
+                    language: language
+                });
+                
+                // Show temporary feedback
+                const originalHTML = saveButton.innerHTML;
+                saveButton.innerHTML = '⏳ Saving...';
+                setTimeout(() => {
+                    saveButton.innerHTML = originalHTML;
+                }, 2000);
+                
+                console.log("Save request sent to VS Code extension");
+            }
         });
         
         // Add Apply button (for code changes)
         const applyButton = document.createElement('button');
-        applyButton.textContent = 'Apply to Editor';
+        applyButton.textContent = '';
         applyButton.className = 'code-action-button';
-        applyButton.style.fontSize = '12px';
-        applyButton.style.padding = '2px 8px';
+        
+        // Add apply icon
+        const applyIcon = document.createElement('span');
+        applyIcon.innerHTML = '✏️'; // Unicode edit icon
+        applyIcon.style.marginRight = '4px';
+        applyButton.appendChild(applyIcon);
+        applyButton.appendChild(document.createTextNode('Apply to Editor'));
         applyButton.addEventListener('click', () => {
-            // Get the code text
-            const code = codeBlock.textContent || '';
+            // Get the code text using our clean extraction method
+            let code = extractCleanCodeFromBlock(codeBlock);
             
-            // Send to VS Code to apply to the current file
-            vscode.postMessage({
-                command: 'applyCodeToEditor',
-                text: code,
-                blockIndex: index
-            });
+            console.log(`Apply to Editor clicked for block ${index}, code length: ${code.length}`);
+            console.log(`Code sample: ${code.substring(0, Math.min(50, code.length))}...`);
             
-            // Show feedback
-            const originalText = applyButton.textContent;
-            applyButton.textContent = 'Applied!';
-            setTimeout(() => {
-                applyButton.textContent = originalText;
-            }, 2000);
+            if (!code || code.trim() === '') {
+                console.error("Cannot apply empty code to editor");
+                alert("Cannot apply empty code to editor");
+                return;
+            }
+            
+            try {
+                // Send to VS Code to apply to the current file
+                console.log(`CRITICAL: Sending code to editor. Length=${code.length}, First 30 chars: ${code.substring(0, 30)}`);
+                
+                // Create and show debug message
+                const debugMsg = document.createElement('div');
+                debugMsg.style.color = 'red';
+                debugMsg.style.fontWeight = 'bold';
+                debugMsg.textContent = `⚠️ Sending to editor: ${code.length} chars`;
+                preElement.parentNode.insertBefore(debugMsg, preElement.nextSibling);
+                
+                // Send to VSCode
+                // Get language from the code block
+                const language = codeBlock.className.replace('language-', '').trim();
+                console.log(`Language detected for apply to editor: ${language}`);
+                
+                vscode.postMessage({
+                    command: 'applyCodeToEditor',
+                    text: code,
+                    blockIndex: index,
+                    language: language  // Pass the language for file creation
+                });
+                console.log("Apply to editor message sent to VS Code");
+                
+                // Show feedback
+                const originalHTML = applyButton.innerHTML;
+                applyButton.innerHTML = '✓ Applying...';
+                
+                // Visual feedback
+                preElement.style.border = '2px solid #4CAF50';
+                setTimeout(() => {
+                    preElement.style.border = '1px solid var(--vscode-panel-border, #555)';
+                    applyButton.innerHTML = originalHTML;
+                }, 2000);
+            } catch (error) {
+                console.error("Error sending apply code message:", error);
+                alert("Error applying code to editor: " + error);
+            }
         });
         
         // Add buttons to container
         actionContainer.appendChild(copyButton);
+        actionContainer.appendChild(saveButton);
         actionContainer.appendChild(applyButton);
         
         // Append to pre element
@@ -463,7 +712,6 @@ if (newSessionButton) {
 
 // Auto-resize textarea on input
 promptInput.addEventListener('input', autoResizeTextarea);
-
 // Event listeners
 sendButton.addEventListener('click', sendPrompt);
 
@@ -478,9 +726,28 @@ promptInput.addEventListener('keydown', (e) => {
 window.addEventListener('message', event => {
     const message = event.data;
     
+    // Debug message to console for all messages from extension
+    console.log(`Received message from extension: ${message.command}`);
+    
     switch (message.command) {
+        case 'fileSaved':
+            if (message.success) {
+                // Show success alert
+                alert(`File saved successfully at: ${message.filePath}`);
+            } else {
+                // Show error alert
+                alert(`Error saving file: ${message.error || 'Unknown error'}`);
+            }
+            break;
+            
         case 'setModel':
             modelDisplay.textContent = 'Model: ' + message.model;
+            
+            // Also update the title indicator
+            const titleIndicator = document.getElementById('title-model-indicator');
+            if (titleIndicator) {
+                titleIndicator.textContent = message.model;
+            }
             break;
             
         case 'updateSessions':

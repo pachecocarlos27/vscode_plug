@@ -157,7 +157,7 @@ export class OllamaPanel {
                             this.currentPromptId = promptId;
                             
                             // Register cancellation handler for the specific command
-                            const cancelDisposable = vscode.commands.registerCommand('vscode-ollama.cancelRequest', () => {
+                            const cancelDisposable = vscode.commands.registerCommand('vscode-ollama-enhanced.cancelRequest', () => {
                                 if (this.currentRequestController) {
                                     this.currentRequestController.abort();
                                     this.panel.webview.postMessage({
@@ -453,7 +453,7 @@ export class OllamaPanel {
                     case 'cancelGeneration':
                         console.log('Cancellation requested from webview');
                         // Execute the registered cancellation command which will handle aborting the request
-                        vscode.commands.executeCommand('vscode-ollama.cancelRequest');
+                        vscode.commands.executeCommand('vscode-ollama-enhanced.cancelRequest');
                         break;
                         
                     case 'copyToClipboard':
@@ -464,29 +464,232 @@ export class OllamaPanel {
                         }
                         break;
                         
+                    case 'saveCodeToFile':
+                        if (message.text) {
+                            // Direct file saving without using the helper method
+                            try {
+                                console.log(`Attempting to save code with language: ${message.language}`);
+                                
+                                // Get the root workspace folder
+                                const workspaceFolders = vscode.workspace.workspaceFolders;
+                                if (!workspaceFolders || workspaceFolders.length === 0) {
+                                    throw new Error('No workspace folder is open');
+                                }
+                                
+                                const rootPath = workspaceFolders[0].uri.fsPath;
+                                console.log(`Root workspace path: ${rootPath}`);
+                                
+                                // Create timestamp for filename
+                                const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').split('.')[0];
+                                
+                                // Determine file extension
+                                const fileExt = this.getFileExtensionForLanguage(message.language);
+                                console.log(`Using file extension: ${fileExt} for language: ${message.language}`);
+                                
+                                // Create default filename
+                                const defaultName = `generated_${timestamp}${fileExt}`;
+                                
+                                // Ask user for filename
+                                const fileName = await vscode.window.showInputBox({
+                                    prompt: 'Enter a filename for your generated code',
+                                    value: defaultName
+                                });
+                                
+                                if (!fileName) {
+                                    console.log('File save cancelled - no filename provided');
+                                    return;
+                                }
+                                
+                                // Create a "generated" folder at workspace root
+                                const targetDir = path.join(rootPath, 'generated');
+                                if (!fs.existsSync(targetDir)) {
+                                    console.log(`Creating directory: ${targetDir}`);
+                                    fs.mkdirSync(targetDir, { recursive: true });
+                                }
+                                
+                                // Full path for the new file
+                                const filePath = path.join(targetDir, fileName);
+                                console.log(`Writing file to: ${filePath}`);
+                                
+                                // Write the file directly
+                                fs.writeFileSync(filePath, message.text, 'utf8');
+                                
+                                // Show success message and offer to open the file
+                                vscode.window.showInformationMessage(
+                                    `Code saved to ${fileName}`, 
+                                    'Open File'
+                                ).then(selection => {
+                                    if (selection === 'Open File') {
+                                        vscode.workspace.openTextDocument(filePath).then(doc => {
+                                            vscode.window.showTextDocument(doc);
+                                        });
+                                    }
+                                });
+                                
+                                // Log successful save operation for debugging
+                                console.log(`Successfully saved file at: ${filePath}`);
+                                
+                                // Send success message to webview
+                                try {
+                                    this.panel.webview.postMessage({
+                                        command: 'fileSaved',
+                                        success: true,
+                                        filePath: filePath
+                                    });
+                                    console.log("Success message sent to webview client");
+                                } catch (postError) {
+                                    console.error(`Error sending file save success message to webview: ${postError}`);
+                                }
+                            } catch (error) {
+                                console.error(`Failed to save file: ${error instanceof Error ? error.message : String(error)}`);
+                                vscode.window.showErrorMessage(`Failed to save code to file: ${error instanceof Error ? error.message : String(error)}`);
+                                
+                                // Notify webview of failure with detailed error
+                                try {
+                                    const errorMsg = error instanceof Error ? error.message : String(error);
+                                    console.error(`Detailed error saving file: ${errorMsg}`);
+                                    
+                                    // Check for specific error causes
+                                    if (errorMsg.includes('EACCES')) {
+                                        console.error("Permission denied error - cannot write to the target directory");
+                                    } else if (errorMsg.includes('ENOENT')) {
+                                        console.error("Directory not found error - target directory doesn't exist");
+                                    }
+                                    
+                                    // Send error details to webview
+                                    this.panel.webview.postMessage({
+                                        command: 'fileSaved',
+                                        success: false,
+                                        error: errorMsg
+                                    });
+                                    console.log("Error message sent to webview client");
+                                } catch (postError) {
+                                    console.error(`Error sending failure message to webview: ${postError}`);
+                                }
+                            }
+                        }
+                        break;
+                        
                     case 'applyCodeToEditor':
                         if (message.text) {
-                            const editor = vscode.window.activeTextEditor;
-                            if (editor) {
-                                // Apply the code to the active editor
-                                editor.edit(editBuilder => {
-                                    // Replace entire selection or insert at cursor
-                                    if (editor.selection.isEmpty) {
-                                        editBuilder.insert(editor.selection.active, message.text);
-                                    } else {
-                                        editBuilder.replace(editor.selection, message.text);
-                                    }
-                                }).then(success => {
-                                    if (success) {
-                                        // Inform the user
-                                        vscode.window.setStatusBarMessage('Code applied to editor', 3000);
-                                    } else {
-                                        vscode.window.showErrorMessage('Failed to apply code to editor');
+                            console.log(`Applying code to editor, length: ${message.text.length}`);
+                            
+                            // Check if there is an active editor
+                            let editor = vscode.window.activeTextEditor;
+                            
+                            // If no active editor, ask what to do
+                            if (!editor) {
+                                console.log("No active editor found, asking user for preference");
+                                
+                                // Try to determine the language for the file extension
+                                let fileExtension = '.txt';  // Default
+                                if (message.language) {
+                                    fileExtension = this.getFileExtensionForLanguage(message.language);
+                                }
+                                
+                                // Ask user what they want to do
+                                vscode.window.showInformationMessage(
+                                    'No editor is currently active. What would you like to do with the code?', 
+                                    'Create New File', 
+                                    'Open Editor First'
+                                ).then(async selection => {
+                                    if (selection === 'Create New File') {
+                                        // Create a new file with the code
+                                        console.log("User chose to create a new file");
+                                        this.createNewFileWithCode(message.text, fileExtension).then(success => {
+                                            if (success) {
+                                                // File was created and opened successfully
+                                                try {
+                                                    this.panel.webview.postMessage({
+                                                        command: 'codeApplied',
+                                                        success: true,
+                                                        createdNewFile: true
+                                                    });
+                                                } catch (err) {
+                                                    console.error(`Error sending confirmation to webview: ${err}`);
+                                                }
+                                            }
+                                        }).catch(err => {
+                                            console.error(`Error creating new file: ${err}`);
+                                            vscode.window.showErrorMessage(`Could not create new file: ${err}`);
+                                        });
+                                    } else if (selection === 'Open Editor First') {
+                                        // Open new untitled document
+                                        console.log("User chose to open an editor first");
+                                        try {
+                                            // Create an untitled document
+                                            const document = await vscode.workspace.openTextDocument({ 
+                                                content: '',
+                                                language: message.language || 'plaintext'
+                                            });
+                                            const editor = await vscode.window.showTextDocument(document);
+                                            
+                                            // Now insert the code at the beginning
+                                            editor.edit(editBuilder => {
+                                                editBuilder.insert(new vscode.Position(0, 0), message.text);
+                                            }).then(success => {
+                                                if (success) {
+                                                    vscode.window.setStatusBarMessage('Code applied to new document', 3000);
+                                                    try {
+                                                        this.panel.webview.postMessage({
+                                                            command: 'codeApplied',
+                                                            success: true,
+                                                            createdNewFile: true
+                                                        });
+                                                    } catch (err) {
+                                                        console.error(`Error sending confirmation to webview: ${err}`);
+                                                    }
+                                                }
+                                            });
+                                        } catch (err) {
+                                            console.error(`Error creating new document: ${err}`);
+                                            vscode.window.showErrorMessage(`Could not create new document: ${err}`);
+                                        }
                                     }
                                 });
                             } else {
-                                vscode.window.showErrorMessage('No active editor to apply code to');
+                                // Use the existing editor
+                                try {
+                                    // Apply the code to the active editor
+                                    editor.edit(editBuilder => {
+                                        // Replace entire selection or insert at cursor
+                                        if (editor.selection.isEmpty) {
+                                            console.log(`Inserting at cursor position: ${editor.selection.active.line}:${editor.selection.active.character}`);
+                                            editBuilder.insert(editor.selection.active, message.text);
+                                        } else {
+                                            console.log(`Replacing selection from line ${editor.selection.start.line} to ${editor.selection.end.line}`);
+                                            editBuilder.replace(editor.selection, message.text);
+                                        }
+                                    }).then(success => {
+                                        if (success) {
+                                            // Inform the user
+                                            vscode.window.setStatusBarMessage('Code applied to editor', 3000);
+                                            console.log("Code successfully applied to editor");
+                                            
+                                            // Send confirmation back to webview
+                                            try {
+                                                this.panel.webview.postMessage({
+                                                    command: 'codeApplied',
+                                                    success: true
+                                                });
+                                            } catch (err) {
+                                                console.error(`Error sending confirmation to webview: ${err}`);
+                                            }
+                                        } else {
+                                            vscode.window.showErrorMessage('Failed to apply code to editor');
+                                            console.error("Failed to apply code to editor - edit returned false");
+                                        }
+                                    }).catch(err => {
+                                        console.error(`Error in editor.edit promise: ${err}`);
+                                        vscode.window.showErrorMessage(`Error applying code: ${err}`);
+                                    });
+                                } catch (err) {
+                                    console.error(`Exception applying code to editor: ${err}`);
+                                    vscode.window.showErrorMessage(`Exception applying code: ${err}`);
+                                }
                             }
+                        } else {
+                            console.error('Apply code to editor called with empty text');
                         }
                         break;
                 }
@@ -496,7 +699,7 @@ export class OllamaPanel {
         );
     }
 
-    public static createOrShow(ollamaService: OllamaService, extensionContext?: vscode.ExtensionContext) {
+    public static createOrShow(ollamaService: OllamaService) {
         // Determine the right column for the chat panel
         let column = vscode.ViewColumn.Beside; // Default to beside
         
@@ -1110,7 +1313,7 @@ export class OllamaPanel {
         
         // If there's selected text, prioritize including it
         if (context.selection) {
-            let selection = this.truncateContentSmartly(
+            const selection = this.truncateContentSmartly(
                 context.selection, 
                 this.MAX_SELECTION_SIZE,
                 'code'
@@ -1358,7 +1561,7 @@ export class OllamaPanel {
             content.substring(content.length - maxSize/2);
     }
     
-    private async applyEdit(filePath: string, edit: { range: [number, number, number, number], text: string }, showDiff: boolean = true) {
+    private async applyEdit(filePath: string, edit: { range: [number, number, number, number], text: string }, showDiff = true) {
         try {
             // Convert file path to URI
             const uri = vscode.Uri.file(filePath);
@@ -1453,6 +1656,7 @@ export class OllamaPanel {
     ): Promise<'apply' | 'cancel'> {
         // Create temporary files for the diff
         const fileName = path.basename(document.fileName);
+        // Use runtime require for OS-specific functionality
         const tempDir = require('os').tmpdir();
         const originalFile = path.join(tempDir, `ollama-original-${fileName}`);
         const newFile = path.join(tempDir, `ollama-new-${fileName}`);
@@ -1518,7 +1722,7 @@ export class OllamaPanel {
             filePath: string;
             edit: { range: [number, number, number, number]; text: string };
         }>,
-        skipConfirmation: boolean = false
+        skipConfirmation = false
     ) {
         if (edits.length === 0) {
             vscode.window.showInformationMessage('No code changes to apply.');
@@ -1597,33 +1801,283 @@ export class OllamaPanel {
         }
     }
     
+    /**
+     * Save generated code to a file in the project directory
+     * @param code The code to save
+     * @param language The programming language of the code
+     */
+    // Create a new file with the given code when no editor is open
+    private async createNewFileWithCode(code: string, fileExtension: string = '.txt'): Promise<boolean> {
+        try {
+            // Create a timestamp for the filename
+            const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').split('.')[0];
+            
+            // Create a default filename
+            const defaultFileName = `generated_${timestamp}${fileExtension}`;
+            
+            // Ask the user for a file name
+            const fileName = await vscode.window.showInputBox({
+                prompt: 'Enter a filename for the code',
+                value: defaultFileName,
+                validateInput: input => {
+                    // Basic validation to avoid invalid file names
+                    if (!input || /[<>:"/\\|?*]/.test(input)) {
+                        return 'Filename contains invalid characters';
+                    }
+                    return null;
+                }
+            });
+            
+            if (!fileName) {
+                // User canceled the operation
+                console.log("User canceled file name input");
+                return false;
+            }
+            
+            // Check if we have a workspace open
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            let filePath: string;
+            
+            if (workspaceFolders && workspaceFolders.length > 0) {
+                // We have a workspace, so create in proper location
+                const rootPath = workspaceFolders[0].uri.fsPath;
+                
+                // Create a "generated" folder at the workspace root
+                const targetDir = path.join(rootPath, 'generated');
+                if (!fs.existsSync(targetDir)) {
+                    fs.mkdirSync(targetDir, { recursive: true });
+                }
+                
+                filePath = path.join(targetDir, fileName);
+            } else {
+                // No workspace, create in temp directory
+                const tempDir = path.join(os.tmpdir(), 'vscode-ollama-generated');
+                if (!fs.existsSync(tempDir)) {
+                    fs.mkdirSync(tempDir, { recursive: true });
+                }
+                
+                filePath = path.join(tempDir, fileName);
+            }
+            
+            // Write the code to the file
+            fs.writeFileSync(filePath, code, 'utf8');
+            console.log(`Created new file at: ${filePath}`);
+            
+            // Open the file in the editor
+            const document = await vscode.workspace.openTextDocument(filePath);
+            await vscode.window.showTextDocument(document);
+            
+            // Show success message
+            vscode.window.showInformationMessage(`Created file: ${fileName}`);
+            
+            return true;
+        } catch (error) {
+            console.error(`Error creating new file: ${error}`);
+            vscode.window.showErrorMessage(`Failed to create new file: ${error instanceof Error ? error.message : String(error)}`);
+            return false;
+        }
+    }
+
+    private async saveCodeToFile(code: string, language: string) {
+        try {
+            // Get the root workspace folder
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (!workspaceFolders || workspaceFolders.length === 0) {
+                throw new Error('No workspace folder is open');
+            }
+            
+            const rootPath = workspaceFolders[0].uri.fsPath;
+            
+            // Determine a suitable file extension based on the language
+            const fileExtension = this.getFileExtensionForLanguage(language);
+            
+            // Create a timestamp for the filename
+            const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').split('.')[0];
+            
+            // Create a default filename
+            const defaultFileName = `generated_${timestamp}${fileExtension}`;
+            
+            // Ask the user for a file name
+            const fileName = await vscode.window.showInputBox({
+                prompt: 'Enter a filename for your generated code',
+                value: defaultFileName,
+                validateInput: input => {
+                    // Basic validation to avoid invalid file names
+                    if (!input || /[<>:"/\\|?*]/.test(input)) {
+                        return 'Filename contains invalid characters';
+                    }
+                    return null;
+                }
+            });
+            
+            if (!fileName) {
+                // User canceled the operation
+                return;
+            }
+            
+            // Determine the target directory
+            // First try to find a suitable directory based on language
+            let targetDir = this.getSuggestedDirectoryForLanguage(rootPath, language);
+            
+            // If no specific directory found, use the root workspace
+            if (!targetDir) {
+                // Create a "generated" folder at the workspace root
+                targetDir = path.join(rootPath, 'generated');
+                if (!fs.existsSync(targetDir)) {
+                    fs.mkdirSync(targetDir, { recursive: true });
+                }
+            }
+            
+            // Create the full file path
+            const filePath = path.join(targetDir, fileName);
+            
+            // Create the file
+            await this.createFile(filePath, code);
+            
+            // Show a confirmation message with an option to open the file
+            const openFile = await vscode.window.showInformationMessage(
+                `Saved file to: ${vscode.workspace.asRelativePath(filePath)}`,
+                'Open File'
+            );
+            
+            if (openFile === 'Open File') {
+                const document = await vscode.workspace.openTextDocument(filePath);
+                await vscode.window.showTextDocument(document);
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to save code to file: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+    
+    /**
+     * Get the appropriate file extension for a programming language
+     * @param language The programming language
+     * @returns The file extension including the dot
+     */
+    private getFileExtensionForLanguage(language: string): string {
+        const normalizedLanguage = (language || '').toLowerCase().trim();
+        
+        const languageExtensionMap: Record<string, string> = {
+            'javascript': '.js',
+            'js': '.js',
+            'typescript': '.ts',
+            'ts': '.ts',
+            'python': '.py',
+            'py': '.py',
+            'java': '.java',
+            'c': '.c',
+            'cpp': '.cpp',
+            'c++': '.cpp',
+            'csharp': '.cs',
+            'cs': '.cs',
+            'go': '.go',
+            'rust': '.rs',
+            'ruby': '.rb',
+            'php': '.php',
+            'html': '.html',
+            'css': '.css',
+            'scss': '.scss',
+            'sass': '.sass',
+            'json': '.json',
+            'xml': '.xml',
+            'markdown': '.md',
+            'md': '.md',
+            'shell': '.sh',
+            'sh': '.sh',
+            'bash': '.sh',
+            'zsh': '.sh',
+            'sql': '.sql',
+            'jsx': '.jsx',
+            'tsx': '.tsx',
+            'swift': '.swift',
+            'kotlin': '.kt',
+            'yaml': '.yaml',
+            'yml': '.yml',
+            'dart': '.dart',
+            'lua': '.lua',
+            'r': '.r',
+            'scala': '.scala'
+        };
+        
+        return languageExtensionMap[normalizedLanguage] || '.txt';
+    }
+    
+    /**
+     * Try to find a suitable directory in the project for a given language
+     * @param rootPath The workspace root path
+     * @param language The programming language
+     * @returns A suggested directory path or null if none found
+     */
+    private getSuggestedDirectoryForLanguage(rootPath: string, language: string): string | null {
+        const normalizedLanguage = (language || '').toLowerCase().trim();
+        
+        // Common directory patterns for different languages
+        const directoryPatterns: Record<string, string[]> = {
+            'javascript': ['src/js', 'src/javascript', 'js', 'javascript', 'src'],
+            'typescript': ['src/ts', 'src/typescript', 'ts', 'typescript', 'src'],
+            'python': ['src/python', 'python', 'py', 'src'],
+            'java': ['src/main/java', 'src/java', 'java', 'src'],
+            'c': ['src/c', 'c', 'src'],
+            'cpp': ['src/cpp', 'cpp', 'src/c++', 'c++', 'src'],
+            'csharp': ['src/cs', 'cs', 'src/csharp', 'csharp', 'src'],
+            'go': ['src/go', 'go', 'src'],
+            'rust': ['src/rust', 'rust', 'src'],
+            'html': ['src/html', 'html', 'public', 'static', 'src'],
+            'css': ['src/css', 'css', 'styles', 'public/css', 'src'],
+            'scss': ['src/scss', 'scss', 'styles', 'src'],
+        };
+        
+        const patterns = directoryPatterns[normalizedLanguage] || ['src', 'lib', 'source'];
+        
+        // Try to find an existing directory matching one of the patterns
+        for (const pattern of patterns) {
+            const dirPath = path.join(rootPath, pattern);
+            if (fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory()) {
+                return dirPath;
+            }
+        }
+        
+        return null;
+    }
+    
     private async createFile(filePath: string, content: string) {
         try {
+            console.log(`Creating file at: ${filePath}`);
+            
             // Make sure directory exists
             const directory = path.dirname(filePath);
             if (!fs.existsSync(directory)) {
+                console.log(`Creating directory: ${directory}`);
                 fs.mkdirSync(directory, { recursive: true });
             }
             
             // Write the file
             fs.writeFileSync(filePath, content, 'utf8');
+            console.log(`File written successfully: ${filePath}`);
             
             // Open the file
             const document = await vscode.workspace.openTextDocument(vscode.Uri.file(filePath));
             await vscode.window.showTextDocument(document);
+            console.log(`File opened in editor`);
             
+            // Send success message to webview
             this.panel.webview.postMessage({
                 command: 'fileCreated',
                 filePath,
                 success: true
             });
         } catch (error) {
+            console.error(`Error creating file: ${error instanceof Error ? error.message : String(error)}`);
+            // Send error message to webview
             this.panel.webview.postMessage({
                 command: 'fileCreated',
                 filePath,
                 success: false,
                 error: `Error: ${error instanceof Error ? error.message : String(error)}`
             });
+            
+            // Show error to user
+            vscode.window.showErrorMessage(`Failed to create file: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
     
@@ -1768,6 +2222,47 @@ export class OllamaPanel {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Ollama Chat</title>
             <script src="${markdownScriptUri}"></script>
+            <script>
+                // Essential function needed for code formatting
+                function highlightCodeBlocks(codeElements) {
+                    if (!codeElements || codeElements.length === 0) return;
+                    
+                    for (let i = 0; i < codeElements.length; i++) {
+                        const block = codeElements[i];
+                        if (!block || !block.className) continue;
+                        
+                        const lang = block.className.replace('language-', '');
+                        let code = block.innerHTML || '';
+                        
+                        // Skip empty or already highlighted blocks
+                        if (!code || code.includes('token')) continue;
+                        
+                        // Set language display on the parent pre element
+                        const preElement = block.parentElement;
+                        if (preElement && preElement.tagName === 'PRE') {
+                            if (!preElement.hasAttribute('data-language')) {
+                                preElement.setAttribute('data-language', lang || 'text');
+                            }
+                        }
+                        
+                        // Apply basic syntax highlighting (simplified for HTML string)
+                        if (lang === 'javascript' || lang === 'js' || lang === 'typescript' || lang === 'ts') {
+                            // Basic keywords (simplified)
+                            code = code.replace(/\\b(const|let|var|function|return|if|else|for|class)\\b/g, 
+                                '<span class="token keyword">$1</span>');
+                            
+                            // Basic strings (simplified)
+                            code = code.replace(/"([^"]*)"/g, '<span class="token string">"$1"</span>');
+                            code = code.replace(/'([^']*)'/g, '<span class="token string">\'$1\'</span>');
+                            
+                            // Comments (simplified)
+                            code = code.replace(/\/\/(.*)/g, '<span class="token comment">//$1</span>');
+                        }
+                        
+                        block.innerHTML = code;
+                    }
+                }
+            </script>
             <style>
                 :root {
                     --scrollbar-width: 10px;
@@ -1855,6 +2350,22 @@ export class OllamaPanel {
                     align-items: center;
                     flex-shrink: 0;
                     z-index: 10;
+                }
+                
+                .model-indicator {
+                    font-size: 12px;
+                    font-weight: normal;
+                    color: var(--vscode-badge-foreground);
+                    background-color: var(--vscode-badge-background);
+                    padding: 2px 8px;
+                    border-radius: 10px;
+                    margin-left: 8px;
+                    opacity: 0.8;
+                    transition: opacity 0.2s ease;
+                }
+                
+                .model-indicator:hover {
+                    opacity: 1;
                 }
                 
                 /* Improved chat container */
@@ -2025,31 +2536,192 @@ export class OllamaPanel {
                     text-decoration: underline;
                 }
                 
-                /* Code formatting */
-                .bot-message pre {
-                    margin: 12px 0;
-                    padding: 12px;
-                    background: var(--vscode-editor-background);
-                    border-radius: var(--code-block-radius);
-                    overflow-x: auto;
-                    border: 1px solid var(--vscode-panel-border);
+                /* Code action buttons */
+                .code-actions {
+                    display: flex;
+                    justify-content: flex-end;
+                    padding: 8px;
+                    background-color: var(--vscode-editor-background);
+                    border-top: 1px solid var(--vscode-editor-lineHighlightBorder);
+                    opacity: 0.8;
+                    transition: opacity 0.2s ease;
                 }
                 
-                .bot-message code {
+                .code-actions:hover {
+                    opacity: 1;
+                }
+                
+                .code-action-button {
+                    background-color: var(--vscode-button-secondaryBackground);
+                    color: var(--vscode-button-secondaryForeground);
+                    border: 1px solid var(--vscode-button-border);
+                    border-radius: 4px;
+                    padding: 4px 12px;
+                    margin-left: 8px;
+                    font-size: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                
+                .code-action-button:hover {
+                    background-color: var(--vscode-button-secondaryHoverBackground);
+                }
+                
+                .code-action-button:active {
+                    transform: translateY(1px);
+                }
+                
+                /* Enhanced Code Formatting */
+                .bot-message pre {
+                    margin: 16px 0;
+                    padding: 16px;
+                    background: var(--vscode-editor-background, #1e1e1e);
+                    border-radius: 8px;
+                    overflow-x: auto;
+                    border: 1px solid var(--vscode-panel-border, #555);
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                    position: relative;
+                    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                    font-size: 14px;
+                    line-height: 1.5;
+                    max-width: 100%;
+                    display: block;
+                }
+                
+                /* Language indicator */
+                .bot-message pre::before {
+                    content: attr(data-language);
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    padding: 4px 8px;
+                    font-size: 11px;
+                    border-radius: 0 var(--code-block-radius) 0 4px;
+                    background: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
+                    opacity: 0.8;
+                    font-family: var(--vscode-font-family);
+                }
+                
+                /* Quick copy button */
+                .bot-message pre::after {
+                    content: "📋 Copy All";
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    padding: 4px 8px;
+                    font-size: 11px;
+                    border-radius: var(--code-block-radius) 0 4px 0;
+                    background: var(--vscode-button-secondaryBackground);
+                    color: var(--vscode-button-secondaryForeground);
+                    opacity: 0;
+                    font-family: var(--vscode-font-family);
+                    cursor: pointer;
+                    transition: opacity 0.2s ease;
+                }
+                
+                .bot-message pre:hover::after {
+                    opacity: 0.8;
+                }
+                
+                .bot-message pre:hover::after:hover {
+                    opacity: 1;
+                }
+                
+                /* Line numbers */
+                .bot-message pre {
+                    counter-reset: line;
+                }
+                
+                .bot-message pre code {
+                    display: block;
+                    padding: 0;
+                    background: none;
+                    line-height: 1.5;
+                    tab-size: 4;
                     font-family: var(--vscode-editor-font-family, 'Consolas, monospace');
                     font-size: 0.9em;
                 }
                 
-                .bot-message pre code {
-                    padding: 0;
-                    background: none;
+                .bot-message pre code > div.line {
+                    position: relative;
+                    padding-left: 3em;
+                    padding-right: 0.5em;
+                    min-height: 1.2em;
+                    line-height: 1.5;
+                    white-space: pre;
+                    display: block;
+                    transition: background-color 0.1s ease;
                 }
                 
+                .bot-message pre code > div.line:hover {
+                    background-color: rgba(255, 255, 255, 0.1);
+                }
+                
+                .bot-message pre code > div.line::before {
+                    counter-increment: line;
+                    content: counter(line);
+                    position: absolute;
+                    left: 0;
+                    width: 2.5em;
+                    text-align: right;
+                    color: var(--vscode-editorLineNumber-foreground, #888);
+                    opacity: 0.8;
+                    padding-right: 0.5em;
+                    border-right: 1px solid var(--vscode-editorLineNumber-activeForeground, #aaa);
+                    user-select: none;
+                    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                    font-size: 0.9em;
+                }
+                
+                /* Line copy button - appears on hover */
+                .bot-message pre code > div.line {
+                    position: relative;
+                }
+                
+                .bot-message pre code > div.line:hover::after {
+                    content: "📋";
+                    position: absolute;
+                    right: 0.5em;
+                    top: 0;
+                    font-size: 12px;
+                    opacity: 0.5;
+                    cursor: pointer;
+                    transition: opacity 0.2s ease;
+                }
+                
+                .bot-message pre code > div.line:hover::after:hover {
+                    opacity: 1;
+                }
+                
+                /* Inline code */
                 .bot-message code:not(pre code) {
-                    background: rgba(0, 0, 0, 0.1);
+                    background: var(--vscode-textCodeBlock-background);
+                    color: var(--vscode-textCodeBlock-foreground);
                     padding: 2px 5px;
                     border-radius: 3px;
+                    font-family: var(--vscode-editor-font-family, 'Consolas, monospace');
+                    font-size: 0.9em;
                 }
+                
+                /* Syntax highlighting tokens */
+                .token.keyword { color: var(--syntax-keyword, #569CD6); font-weight: bold; }
+                .token.string { color: var(--syntax-string, #CE9178); }
+                .token.number { color: var(--syntax-number, #B5CEA8); }
+                .token.boolean { color: var(--syntax-boolean, #569CD6); }
+                .token.function { color: var(--syntax-function, #DCDCAA); }
+                .token.comment { color: var(--syntax-comment, #6A9955); }
+                
+                /* Explicit token styling as fallback */
+                span.token.keyword { color: #569CD6; font-weight: bold; }
+                span.token.string { color: #CE9178; }
+                span.token.number { color: #B5CEA8; }
+                span.token.boolean { color: #569CD6; }
+                span.token.function { color: #DCDCAA; }
+                span.token.comment { color: #6A9955; }
                 
                 /* Reference message styling */
                 .reference-message {
@@ -2081,30 +2753,52 @@ export class OllamaPanel {
                     background-color: var(--vscode-button-secondaryHoverBackground);
                 }
                 
-                /* Basic syntax highlighting */
+                /* Enhanced syntax highlighting */
                 .token.string {
-                    color: var(--syntax-string);
+                    color: var(--syntax-string, #ce9178);
                 }
                 
                 .token.number {
-                    color: var(--syntax-number);
+                    color: var(--syntax-number, #b5cea8);
                 }
                 
                 .token.boolean {
-                    color: var(--syntax-boolean);
+                    color: var(--syntax-boolean, #569cd6);
                 }
                 
                 .token.function {
-                    color: var(--syntax-function);
+                    color: var(--syntax-function, #dcdcaa);
                 }
                 
                 .token.keyword {
-                    color: var(--syntax-keyword);
+                    color: var(--syntax-keyword, #569cd6);
+                    font-weight: bold;
                 }
                 
                 .token.comment {
-                    color: var(--syntax-comment);
+                    color: var(--syntax-comment, #6a9955);
                     font-style: italic;
+                }
+                
+                .token.operator {
+                    color: var(--vscode-symbolIcon-operatorForeground, #d4d4d4);
+                }
+                
+                .token.punctuation {
+                    color: var(--vscode-symbolIcon-operatorForeground, #d4d4d4);
+                }
+                
+                .token.class-name {
+                    color: var(--vscode-symbolIcon-classForeground, #4ec9b0);
+                }
+                
+                .token.parameter {
+                    color: var(--vscode-symbolIcon-variableForeground, #9cdcfe);
+                }
+                
+                /* Highlight the active line on hover */
+                .bot-message pre code > div.line:hover {
+                    background-color: rgba(255, 255, 255, 0.1);
                 }
                 
                 /* Table styling */
@@ -2219,6 +2913,8 @@ export class OllamaPanel {
                     align-items: center;
                     gap: 10px;
                 }
+                
+                /* Session Management Styling */
                 
                 .dropdown {
                     position: relative;
@@ -2349,6 +3045,7 @@ export class OllamaPanel {
                 <div class="header">
                     <div class="header-left">
                         <span class="title">Ollama Chat</span>
+                        <span class="model-indicator" id="title-model-indicator"></span>
                         <div class="dropdown">
                             <button id="session-selector" class="dropdown-button">
                                 <span id="current-session-name">Current Chat</span>

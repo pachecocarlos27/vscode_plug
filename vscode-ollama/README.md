@@ -1,61 +1,208 @@
-# Ollama for VS Code
+# Ollama Enhanced for VS Code (v1.0)
 
-Run [Ollama](https://ollama.ai) models directly from VS Code for AI-powered code editing, analysis, and chat.
+Run [Ollama](https://ollama.ai) models directly from VS Code for AI-powered code editing, analysis, and chat - now with built-in Ollama for easier setup! No external installation required.
+
+![Ollama Enhanced for VS Code](https://raw.githubusercontent.com/CarlosPacheco/vscode-ollama/main/logo.png)
 
 ## Features
 
-* Chat with Ollama models directly in VS Code
-* Use local models for better privacy and performance
-* Get code explanations, improvements, and documentation
-* Context-aware AI assistance that understands your project
-* Compatible with all Ollama models (Llama, Mistral, Phi, Gemma, etc.)
+* **Built-in Ollama engine** - No external installation required!
+* **Pre-packaged small models** - Start coding with AI immediately
+* **Smart mode switching** - Automatically detects and uses the best available Ollama setup
+* **Save generated code to project** - Instantly save AI-generated code as files
+* **Context-aware AI** - The assistant understands your project structure and code
+* **Code operations** - Explain, improve, and document your code with one click
+* **Beautiful code formatting** - Enhanced code blocks with syntax highlighting and line numbers
+* **Privacy focused** - All processing happens locally on your machine
+* **Compatible with all Ollama models** - Works with Llama, Mistral, Phi, Gemma, and more
+
+## What's New in Version 1.0
+
+Version 1.0 marks our official stable release with significant enhancements:
+
+* **Zero installation required** - Get started immediately without installing Ollama
+* **Pre-packaged models included:**
+  * **DeepSeek Coder V2** - Default model optimized for coding tasks
+  * **Phi-3 Mini** - Microsoft's 3.8B parameter model optimized for coding tasks
+  * **TinyLlama** - Compact 1.1B parameter model for quick responses
+* **Smart mode switching** - Seamlessly switches between system and embedded Ollama
+* **Save generated code as files** - Instantly save code to your project with smart directory detection
+* **Complete offline operation** - Works without internet connection
+* **Cross-platform compatibility** - Full support for Windows, macOS, and Linux
+* **Clean, distraction-free UI** - Streamlined interface that integrates with VS Code's native theme
 
 ## Requirements
 
-* [Ollama](https://ollama.ai) must be installed and running on your system
-* At least one model must be installed with Ollama
 * VS Code 1.60.0 or higher
+* **OPTIONAL:** [Ollama](https://ollama.ai) installed on your system (for using larger models)
 
 ## Getting Started
 
-1. Install [Ollama](https://ollama.ai) if you haven't already
-2. Install at least one model using `ollama pull modelname` (e.g., `ollama pull llama3:8b` or `ollama pull codellama:7b`)
-3. Make sure the Ollama service is running (it should start automatically)
-4. Install this extension from the VS Code marketplace
-5. Run the "Ollama: Run Model" command to start chatting
+Version 1.0 offers multiple ways to get started based on your needs:
+
+### Option 1: Using Embedded Ollama (Recommended for Beginners)
+
+1. Install the extension from the VS Code marketplace
+2. Click the Ollama icon in the sidebar or run the "Ollama Enhanced: Install Embedded Model" command
+3. Select a model (DeepSeek Coder V2 is pre-selected as the default)
+4. Wait for the model to install (usually less than a minute)
+5. Start using AI assistance right away!
+
+### Option 2: Using System Ollama (For Advanced Users)
+
+1. Install [Ollama](https://ollama.ai) on your system 
+2. Pull a model: `ollama pull llama3:8b` or `ollama pull codellama:7b`
+3. Install this extension
+4. The extension automatically detects your Ollama installation
+5. Run "Ollama Enhanced: Run Model" to start
+
+### Option 3: Auto Mode (Default)
+
+By default, the extension operates in "Auto" mode, which:
+1. Checks for a system Ollama installation first
+2. Falls back to embedded mode if system Ollama isn't available
+3. Recommends the best approach based on your environment
+
+You can switch modes anytime using the "Ollama Enhanced: Switch Mode" command.
+
+## Key Features in Detail
+
+### Code Generation and Management
+
+The extension provides powerful tools for working with AI-generated code:
+
+#### Save Code to File
+When you receive code in a response, you'll see three action buttons:
+- **Copy** - Copy code to clipboard
+- **Save as File** - Save code as a file in your project
+- **Apply to Editor** - Insert code at current cursor position
+
+The "Save as File" feature will:
+1. Automatically detect the programming language
+2. Find the appropriate directory in your project structure
+3. Suggest a filename with the right extension
+4. Create the file and open it in the editor
+
+#### Code Operations
+Select code in your editor and right-click to access:
+- **Explain Selected Code** - Get a detailed explanation of how the code works
+- **Improve Selected Code** - Receive suggestions for optimization, best practices, and bug fixes
+- **Generate Documentation** - Create comprehensive documentation for the selected code
+- **Add Selection as Reference** - Include the selected code as context for future chat
+
+### Operation Modes
+
+The extension offers three operation modes:
+
+#### 1. Embedded Mode
+- Uses Ollama bundled with the extension
+- No external installation required
+- Includes small, efficient models for coding tasks
+- Perfect for restricted environments or quick setup
+
+#### 2. System Mode
+- Uses Ollama installed on your system
+- Supports all Ollama models (including larger ones)
+- Provides more flexibility and customization
+- Good for users who already use Ollama
+
+#### 3. Auto Mode (Default)
+- Automatically selects the best mode
+- Tries system Ollama first, falls back to embedded
+- Seamlessly adapts to your environment
+- Recommended for most users
 
 ## Commands
 
-* `Ollama: Run Model` - Start chatting with an Ollama model
-* `Ollama: List Models` - Show installed Ollama models
-* `Ollama: Download/Install Model` - Pull a new model from Ollama library
-* `Ollama: Explain Selected Code` - Explain the currently selected code
-* `Ollama: Improve Selected Code` - Get suggestions to improve selected code
-* `Ollama: Generate Documentation` - Generate documentation for selected code
+* `Ollama Enhanced: Run Model` - Start a chat session with a model
+* `Ollama Enhanced: List Models` - Show all available models
+* `Ollama Enhanced: Install Embedded Model` - Install a bundled model
+* `Ollama Enhanced: Download/Install Model` - Pull a model from Ollama library
+* `Ollama Enhanced: Switch Mode` - Change between system, embedded, or auto modes
+* `Ollama Enhanced: Explain Selected Code` - Get code explanation
+* `Ollama Enhanced: Improve Selected Code` - Receive code improvement suggestions
+* `Ollama Enhanced: Generate Documentation` - Create documentation for code
+* `Ollama Enhanced: Add Selection as Reference` - Use selected code as context
+* `Ollama Enhanced: Check Installation` - Verify Ollama setup
 
 ## Settings
 
-* `ollama.apiUrl` - URL of the Ollama API server (default: http://localhost:11434)
-* `ollama.defaultModel` - Model to use by default when not specified
-* `ollama.includeProjectContext` - Whether to include project context in prompts
-* `ollama.maxResponseTokens` - Maximum number of tokens in model responses
-* `ollama.temperature` - Temperature setting for model generation (0.0-2.0)
+### Core Settings
+
+* `ollamaEnhanced.mode` - Operation mode: "system", "embedded", or "auto" (default)
+* `ollamaEnhanced.defaultModel` - Model to use by default when not specified
+
+### System Ollama Settings
+
+* `ollamaEnhanced.apiUrl` - System Ollama API URL (default: http://localhost:11434)
+* `ollamaEnhanced.temperature` - Temperature for generation (0.0-2.0, default: 0.7)
+* `ollamaEnhanced.maxResponseTokens` - Max tokens in responses (default: 4096)
+* `ollamaEnhanced.requestTimeout` - Timeout for requests in seconds (default: 90)
+
+### Embedded Ollama Settings
+
+* `ollamaEnhanced.embeddedPort` - Port for embedded Ollama (default: 9527)
+* `ollamaEnhanced.embeddedModelsAutoUpdate` - Auto-update embedded models
+
+### Project Context Settings
+
+* `ollamaEnhanced.includeProjectContext` - Include project context in prompts
+* `ollamaEnhanced.filePatterns` - File patterns to include in context
+* `ollamaEnhanced.excludePatterns` - File patterns to exclude from context
 
 ## Troubleshooting
 
-See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues and solutions.
+For common issues and solutions, please refer to our detailed [TROUBLESHOOTING.md](TROUBLESHOOTING.md) guide.
+
+Common troubleshooting tasks:
+- Switching between operation modes
+- Checking server status
+- Resolving port conflicts
+- Resolving model installation issues
+
+## Examples and Use Cases
+
+### 1. Generate Utility Functions
+```
+Write a utility function to parse CSV files in JavaScript with proper error handling
+```
+
+### 2. Explain Complex Code
+Select a complex piece of code and use "Explain Selected Code" to get a detailed breakdown of what it does.
+
+### 3. Improve Performance
+Select code that runs slowly and use "Improve Selected Code" to get optimization suggestions.
+
+### 4. Generate Documentation
+Select a class or function and use "Generate Documentation" to create comprehensive documentation.
+
+### 5. Create Boilerplate Code
+```
+Create a React component for a responsive navigation menu with dark mode support
+```
+
+### 6. Fix Bugs
+Share code that has a bug and ask:
+```
+This code isn't working correctly. It should [expected behavior] but instead it [actual behavior]. What's the issue?
+```
 
 ## Release Notes
 
 See [CHANGELOG.md](CHANGELOG.md) for all updates and changes.
 
-### 0.1.0
+### 1.0.0 - Stable Release (April 2025)
 
-- Performance optimizations for faster response times
-- Better handling of large files and project context
-- Improved code selection handling
-- Fixed automatic activation on startup
-- Better error recovery and timeout handling
+- **STABLE:** First official stable release
+- **NEW:** Embedded Ollama with zero installation
+- **NEW:** DeepSeek Coder V2 as the default model for superior coding assistance
+- **NEW:** Small bundled models (Phi-3 Mini, TinyLlama)
+- **NEW:** Save generated code as files with smart directory detection
+- **NEW:** Automatic mode switching between system and embedded Ollama
+- Enhanced configuration options for all modes
+- Improved UX with a clean, distraction-free interface
+- Better error handling and recovery
+- Comprehensive documentation and troubleshooting guides
 
 ## License
 
