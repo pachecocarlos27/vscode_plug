@@ -630,32 +630,41 @@ export class OllamaService {
             
             if (installModel === 'Install a Model') {
                 const recommendedModels = [
+                    { label: 'deepseek-coder-v2:latest', description: 'DeepSeek Coder V2 - Optimized for code tasks (4.2GB)' },
                     { label: 'gemma:7b', description: 'Google Gemma 7B model - 4.8GB' },
                     { label: 'llama3:8b', description: 'Meta Llama 3 8B model - 4.7GB' },
                     { label: 'mistral:7b', description: 'Mistral 7B model - 4.1GB' },
-                    { label: 'phi3:mini', description: 'Microsoft Phi-3 mini - 1.7GB' },
-                    { label: 'neural-chat:7b', description: 'Neural Chat 7B model - 4.1GB' }
+                    { label: 'phi3:mini', description: 'Microsoft Phi-3 mini - 1.7GB' }
                 ];
+                
+                // Set deepseek-coder as the default selection
+                const defaultModel = recommendedModels[0];
+                this.serviceChannel.appendLine(`Suggesting models with default: ${defaultModel.label}`);
                 
                 const selectedModel = await vscode.window.showQuickPick(recommendedModels, {
                     placeHolder: 'Select a model to install (will download several GB)',
+                    ignoreFocusOut: true
                 });
                 
-                if (selectedModel) {
-                    await vscode.window.withProgress({
-                        location: vscode.ProgressLocation.Notification,
-                        title: `Downloading ${selectedModel.label} model...`,
-                        cancellable: false
-                    }, async (progress) => {
-                        try {
-                            progress.report({ message: 'Downloading and installing model...' });
-                            await this.pullModel(selectedModel.label);
-                            vscode.window.showInformationMessage(`Successfully installed ${selectedModel.label} model!`);
-                        } catch (error) {
-                            vscode.window.showErrorMessage(`Failed to install model: ${error instanceof Error ? error.message : String(error)}`);
-                        }
-                    });
-                }
+                const modelToInstall = selectedModel || defaultModel;
+                
+                await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: `Downloading ${modelToInstall.label} model...`,
+                    cancellable: false
+                }, async (progress) => {
+                    try {
+                        progress.report({ message: 'Downloading and installing model...' });
+                        await this.pullModel(modelToInstall.label);
+                        vscode.window.showInformationMessage(`Successfully installed ${modelToInstall.label} model!`);
+                        
+                        // Set as default model in settings
+                        await vscode.workspace.getConfiguration('ollama').update('defaultModel', modelToInstall.label, true);
+                        this.serviceChannel.appendLine(`Set default model to: ${modelToInstall.label}`);
+                    } catch (error) {
+                        vscode.window.showErrorMessage(`Failed to install model: ${error instanceof Error ? error.message : String(error)}`);
+                    }
+                });
             }
         }
     }
@@ -694,7 +703,7 @@ export class OllamaService {
             const timeoutId = setTimeout(() => controller.abort(), 1800000); // 30-minute timeout
             
             // Track download stats
-            let startTime = Date.now();
+            const startTime = Date.now();
             let lastReportTime = startTime;
             let lastBytes = 0;
             let totalDownloaded = 0;
@@ -1089,7 +1098,7 @@ export class OllamaService {
             90;
         
         // Stream state management
-        let abortController = new AbortController();
+        const abortController = new AbortController();
         
         try {
             // Initial thinking message

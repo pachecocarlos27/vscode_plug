@@ -13,7 +13,7 @@ export class ErrorUtility {
     /**
      * Format an error into a user-friendly message
      */
-    static formatError(error: unknown, context: string = ''): string {
+    static formatError(error: unknown, context = ''): string {
         const prefix = context ? `${context}: ` : '';
         
         if (axios.isAxiosError(error)) {
@@ -44,7 +44,7 @@ export class ErrorUtility {
      */
     static async showError(error: unknown, context: string, 
                           actionLabel: string | null = null, 
-                          actionCallback: (() => Promise<any>) | null = null): Promise<void> {
+                          actionCallback: (() => Promise<unknown>) | null = null): Promise<void> {
         const message = this.formatError(error, context);
         
         if (actionLabel && actionCallback) {
@@ -61,7 +61,7 @@ export class ErrorUtility {
      * Log error to output channel and optionally show to user
      */
     static logError(error: unknown, outputChannel: vscode.OutputChannel, 
-                   context: string, showToUser: boolean = false): void {
+                   context: string, showToUser = false): void {
         const message = this.formatError(error, context);
         const errorDetail = error instanceof Error ? 
             `${error.message}\n${error.stack || 'No stack trace'}` : 
@@ -107,7 +107,7 @@ export class Logger {
     /**
      * Log an object as JSON
      */
-    static logObject(channelName: string, label: string, obj: any): void {
+    static logObject(channelName: string, label: string, obj: unknown): void {
         const channel = this.getChannel(channelName);
         channel.appendLine(`[INFO] ${label}: ${JSON.stringify(obj, null, 2)}`);
     }

@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { OllamaService } from './ollamaService';
 import { OllamaPanel } from './ollamaPanel';
+import { OllamaManager, OllamaMode } from './ollamaManager';
 
 // Create global output channels that are available even if extension fails to activate
 // IMPORTANT: These need to be exported and defined at the module level for VS Code to register them
@@ -109,10 +110,13 @@ export function activate(context: vscode.ExtensionContext) {
     MAIN_OUTPUT_CHANNEL.appendLine(`Extension Mode: ${context.extensionMode === vscode.ExtensionMode.Development ? 'Development' : 'Production'}`);
     
     try {
-        // Initialize the Ollama service
-        MAIN_OUTPUT_CHANNEL.appendLine('Initializing Ollama service...');
-        // Pass the output channels to the service
-        const ollamaService = new OllamaService(SERVICE_OUTPUT_CHANNEL, API_OUTPUT_CHANNEL);
+        // Initialize the Ollama manager
+        MAIN_OUTPUT_CHANNEL.appendLine('Initializing Ollama manager...');
+        // Pass the extension path and output channels to the manager
+        const ollamaManager = new OllamaManager(context.extensionPath, SERVICE_OUTPUT_CHANNEL, API_OUTPUT_CHANNEL);
+        
+        // For backward compatibility, keep a reference to the system Ollama service
+        const ollamaService = ollamaManager['systemService'];
         
         // Add error handler to the global error handling
         process.on('uncaughtException', (error) => {
@@ -128,7 +132,7 @@ export function activate(context: vscode.ExtensionContext) {
         });
     
     // Register debug command
-    const debugCommand = vscode.commands.registerCommand('vscode-ollama.debug', async () => {
+    const debugCommand = vscode.commands.registerCommand('vscode-ollama-enhanced.debug', async () => {
         try {
             // Use the debug channel for diagnostics
             GLOBAL_OUTPUT_CHANNEL.show(true);
@@ -198,7 +202,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
     
     // Register command to check Ollama installation
-    const checkInstallationCommand = vscode.commands.registerCommand('vscode-ollama.checkInstallation', async () => {
+    const checkInstallationCommand = vscode.commands.registerCommand('vscode-ollama-enhanced.checkInstallation', async () => {
         try {
             const isInstalled = await ollamaService.checkOllamaInstalled();
             if (isInstalled) {
@@ -209,10 +213,21 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
     
-    // Register command to pull/download a new model
-    const pullModelCommand = vscode.commands.registerCommand('vscode-ollama.pullModel', async () => {
+    // Register command to pull/download a new model from system Ollama
+    const pullModelCommand = vscode.commands.registerCommand('vscode-ollama-enhanced.pullModel', async () => {
+        // Check if we're in system mode or if system Ollama is available
+        const currentMode = ollamaManager.getCurrentMode();
+        if (currentMode === OllamaMode.Embedded) {
+            vscode.window.showInformationMessage('Currently using embedded Ollama mode. Switch to system mode to download external models.', 'Switch Mode').then(selection => {
+                if (selection === 'Switch Mode') {
+                    vscode.commands.executeCommand('vscode-ollama-enhanced.switchOllamaMode');
+                }
+            });
+            return;
+        }
+        
         // First check if Ollama is installed
-        const isInstalled = await ollamaService.checkOllamaInstalled();
+        const isInstalled = await ollamaManager.checkOllamaInstalled();
         if (!isInstalled) {
             return;
         }
@@ -269,8 +284,58 @@ export function activate(context: vscode.ExtensionContext) {
         });
     });
     
+    // Register command to install embedded models
+    const installEmbeddedModelCommand = vscode.commands.registerCommand('vscode-ollama-enhanced.installEmbeddedModel', async () => {
+        try {
+            await ollamaManager.showEmbeddedModelInstaller();
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to install embedded model: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+    
+    // Register command to switch Ollama mode
+    const switchOllamaModeCommand = vscode.commands.registerCommand('vscode-ollama-enhanced.switchOllamaMode', async () => {
+        try {
+            const currentMode = ollamaManager.getCurrentMode();
+            
+            const modes = [
+                { 
+                    label: 'System Ollama', 
+                    description: 'Use Ollama installed on system',
+                    detail: 'Use this mode if you have Ollama installed and want to use all available models',
+                    mode: OllamaMode.System,
+                    picked: currentMode === OllamaMode.System
+                },
+                { 
+                    label: 'Embedded Ollama', 
+                    description: 'Use Ollama embedded in the extension',
+                    detail: 'Use this mode if you don\'t have Ollama installed or want to use the bundled models',
+                    mode: OllamaMode.Embedded,
+                    picked: currentMode === OllamaMode.Embedded
+                },
+                { 
+                    label: 'Auto-detect', 
+                    description: 'Use system Ollama if available, fall back to embedded',
+                    detail: 'Automatic mode that tries to use system Ollama first, then falls back to embedded if needed',
+                    mode: OllamaMode.Auto,
+                    picked: currentMode === OllamaMode.Auto
+                }
+            ];
+            
+            const selectedMode = await vscode.window.showQuickPick(modes, {
+                placeHolder: 'Select Ollama operating mode',
+            });
+            
+            if (selectedMode) {
+                await ollamaManager.switchMode(selectedMode.mode);
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to switch Ollama mode: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+    
     // Register command to list and select Ollama models
-    const listModelsCommand = vscode.commands.registerCommand('vscode-ollama.listModels', async () => {
+    const listModelsCommand = vscode.commands.registerCommand('vscode-ollama-enhanced.listModels', async () => {
         try {
             const models = await ollamaService.listModels();
             
@@ -306,7 +371,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
     
     // Register command to run a model directly (opens the chat panel)
-    const runModelCommand = vscode.commands.registerCommand('vscode-ollama.runModel', async () => {
+    const runModelCommand = vscode.commands.registerCommand('vscode-ollama-enhanced.runModel', async () => {
         try {
             const models = await ollamaService.listModels();
             
@@ -342,20 +407,20 @@ export function activate(context: vscode.ExtensionContext) {
     });
     
     // Code editing and context menu commands
-    const explainCodeCommand = vscode.commands.registerCommand('vscode-ollama.explainCode', async () => {
+    const explainCodeCommand = vscode.commands.registerCommand('vscode-ollama-enhanced.explainCode', async () => {
         await executeCodeAction('Explain what this code does in detail:');
     });
     
-    const improveCodeCommand = vscode.commands.registerCommand('vscode-ollama.improveCode', async () => {
+    const improveCodeCommand = vscode.commands.registerCommand('vscode-ollama-enhanced.improveCode', async () => {
         await executeCodeAction('Improve this code. Consider performance, readability, and best practices:');
     });
     
-    const generateDocumentationCommand = vscode.commands.registerCommand('vscode-ollama.generateDocumentation', async () => {
+    const generateDocumentationCommand = vscode.commands.registerCommand('vscode-ollama-enhanced.generateDocumentation', async () => {
         await executeCodeAction('Generate comprehensive documentation for this code:');
     });
     
     // Command to add selected text as reference/context to the chat
-    const addAsReferenceCommand = vscode.commands.registerCommand('vscode-ollama.addAsReference', async () => {
+    const addAsReferenceCommand = vscode.commands.registerCommand('vscode-ollama-enhanced.addAsReference', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage('No active text editor');
@@ -410,8 +475,8 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
     
-// Function to execute code actions with selected text
-async function executeCodeAction(prompt: string) {
+    // Define function to execute code actions with selected text
+    const executeCodeAction = async (prompt: string) => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage('No active text editor');
@@ -621,15 +686,15 @@ async function executeCodeAction(prompt: string) {
             if (isError) {
                 statusBarItem.text = "$(error) Ollama: Error";
                 statusBarItem.tooltip = "Error checking Ollama status. Click to retry.";
-                statusBarItem.command = 'vscode-ollama.checkInstallation';
+                statusBarItem.command = 'vscode-ollama-enhanced.checkInstallation';
             } else if (isRunning) {
                 statusBarItem.text = "$(check) Ollama";
                 statusBarItem.tooltip = "Ollama is running. Click to open chat.";
-                statusBarItem.command = 'vscode-ollama.runModel';
+                statusBarItem.command = 'vscode-ollama-enhanced.runModel';
             } else {
                 statusBarItem.text = "$(warning) Ollama: Not Running";
                 statusBarItem.tooltip = "Ollama is not running. Click to start.";
-                statusBarItem.command = 'vscode-ollama.checkInstallation';
+                statusBarItem.command = 'vscode-ollama-enhanced.checkInstallation';
             }
         };
         
@@ -721,7 +786,7 @@ async function executeCodeAction(prompt: string) {
                 ollamaCompletion.detail = 'Use Ollama to suggest code completion';
                 ollamaCompletion.insertText = '';
                 ollamaCompletion.command = {
-                    command: 'vscode-ollama.completeCode',
+                    command: 'vscode-ollama-enhanced.completeCode',
                     title: 'Complete with Ollama'
                 };
                 
@@ -731,7 +796,7 @@ async function executeCodeAction(prompt: string) {
     );
     
     // Register command to complete code using Ollama
-    const completeCodeCommand = vscode.commands.registerCommand('vscode-ollama.completeCode', async () => {
+    const completeCodeCommand = vscode.commands.registerCommand('vscode-ollama-enhanced.completeCode', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
         
@@ -820,6 +885,8 @@ ${precedingText}
         runModelCommand, 
         checkInstallationCommand, 
         pullModelCommand,
+        installEmbeddedModelCommand,
+        switchOllamaModeCommand,
         explainCodeCommand,
         improveCodeCommand,
         generateDocumentationCommand,
@@ -851,6 +918,9 @@ ${precedingText}
     // Log successful activation
     MAIN_OUTPUT_CHANNEL.appendLine('Ollama extension activation completed successfully');
     MAIN_OUTPUT_CHANNEL.show(true); // Show the output channel (preserves focus)
+    
+    // Export ollamaManager for proper cleanup during deactivation
+    return { ollamaManager };
     
     } catch (error) {
         // Log any errors during activation
@@ -884,7 +954,7 @@ async function checkOllamaStatus(statusBarItem: vscode.StatusBarItem, ollamaServ
     // Set to checking state with visible animation
     statusBarItem.text = "$(sync~spin) Checking Ollama...";
     statusBarItem.tooltip = "Checking if Ollama is installed and running";
-    statusBarItem.command = 'vscode-ollama.debug'; // Click to show debug info
+    statusBarItem.command = 'vscode-ollama-enhanced.debug'; // Click to show debug info
     statusBarItem.show();
     
     // Make sure status bar change takes effect immediately
@@ -899,7 +969,7 @@ async function checkOllamaStatus(statusBarItem: vscode.StatusBarItem, ollamaServ
         if (statusBarItem.text.includes("Checking")) {
             statusBarItem.text = "$(warning) Ollama: Timeout";
             statusBarItem.tooltip = "Timed out while checking Ollama status. Click to retry.";
-            statusBarItem.command = 'vscode-ollama.checkInstallation';
+            statusBarItem.command = 'vscode-ollama-enhanced.checkInstallation';
             outputChannel.appendLine(`Status check timed out after 10 seconds`);
         }
     }, 10000); // 10-second timeout
@@ -918,7 +988,7 @@ async function checkOllamaStatus(statusBarItem: vscode.StatusBarItem, ollamaServ
             console.log("Ollama is installed and running");
             statusBarItem.text = "$(check) Ollama";
             statusBarItem.tooltip = "Ollama is installed and running. Click to open chat.";
-            statusBarItem.command = 'vscode-ollama.runModel';
+            statusBarItem.command = 'vscode-ollama-enhanced.runModel';
             
             // Try to get available models to show more information
             try {
@@ -941,7 +1011,7 @@ async function checkOllamaStatus(statusBarItem: vscode.StatusBarItem, ollamaServ
             console.log("Ollama is not installed or not running");
             statusBarItem.text = "$(warning) Ollama: Not Running";
             statusBarItem.tooltip = "Ollama is not installed or not running. Click to install/start.";
-            statusBarItem.command = 'vscode-ollama.checkInstallation';
+            statusBarItem.command = 'vscode-ollama-enhanced.checkInstallation';
         }
     } catch (e) {
         // Clear the timeout since we got an error
@@ -950,7 +1020,7 @@ async function checkOllamaStatus(statusBarItem: vscode.StatusBarItem, ollamaServ
         console.error("Error checking Ollama status:", e);
         statusBarItem.text = "$(error) Ollama: Error";
         statusBarItem.tooltip = `Error checking Ollama status: ${e instanceof Error ? e.message : String(e)}. Click to retry.`;
-        statusBarItem.command = 'vscode-ollama.checkInstallation';
+        statusBarItem.command = 'vscode-ollama-enhanced.checkInstallation';
     }
     
     // We no longer need the poll interval here as it's handled by a dedicated interval in the activation
@@ -966,6 +1036,22 @@ export function deactivate() {
         if (OllamaPanel.currentPanel) {
             console.log('Disposing OllamaPanel...');
             OllamaPanel.currentPanel.dispose();
+        }
+        
+        // Dispose of OllamaManager to shut down embedded Ollama if running
+        try {
+            // We need to use vscode.extensions.getExtension to get the active instance of the extension
+            const extension = vscode.extensions.getExtension('CarlosPacheco.vscode-ollama-enhanced');
+            if (extension) {
+                // exports is not part of the type definition
+                const ollamaManager = extension.exports.ollamaManager;
+                if (ollamaManager && typeof ollamaManager.dispose === 'function') {
+                    console.log('Disposing OllamaManager...');
+                    ollamaManager.dispose();
+                }
+            }
+        } catch (managerError) {
+            console.error('Error disposing OllamaManager:', managerError);
         }
         
         console.log('Ollama Extension deactivated successfully');

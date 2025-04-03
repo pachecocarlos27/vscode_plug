@@ -51,12 +51,28 @@ function parseMarkdownImpl(text) {
         return '';
     }
     
-    // Process code blocks first
-    let parsed = text.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, language, code) {
+    // Process code blocks with enhanced formatting
+    let parsed = text.replace(/```(\w*)\s*([\s\S]*?)```/g, function(match, language, code) {
         const lang = language || '';
-        return '<pre><code class="language-' + lang + '">' + 
-               code.replace(/</g, '&lt;').replace(/>/g, '&gt;') + 
-               '</code></pre>';
+        const displayLang = lang ? lang : 'text';
+        
+        // Process code to add line numbers
+        const codeLines = code.trim().split('\n');
+        let lineNumberedCode = '';
+        
+        codeLines.forEach((line, index) => {
+            // Escape HTML
+            const escapedLine = line.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
+            // Strip any existing tokens/formatting from the line
+            const cleanLine = escapedLine.replace(/"token [^"]+"/g, '').replace(/class="line"/g, '');
+            
+            // Wrap each line in a div with class="line" for line numbers and add data-line-number for identification
+            lineNumberedCode += `<div class="line" data-line-number="${index+1}">${cleanLine}</div>`;
+        });
+        
+        // Return enhanced code block with language label
+        return `<pre data-language="${displayLang}"><code class="language-${lang}">${lineNumberedCode}</code></pre>`;
     });
     
     // Replace inline code
@@ -158,7 +174,7 @@ function parseMarkdownImpl(text) {
     return result;
 }
 
-// Syntax highlighting in batches
+// Enhanced syntax highlighting in batches
 function highlightCodeBlocks(codeElements) {
     if (!codeElements || codeElements.length === 0) return;
     
@@ -176,8 +192,16 @@ function highlightCodeBlocks(codeElements) {
             // Skip empty or already highlighted blocks
             if (!code || code.includes('token')) continue;
             
-            // Sanitize code
-            code = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            // Set language display on the parent pre element
+            const preElement = block.parentElement;
+            if (preElement && preElement.tagName === 'PRE') {
+                if (!preElement.hasAttribute('data-language')) {
+                    preElement.setAttribute('data-language', lang || 'text');
+                }
+            }
+            
+            // We don't need to sanitize code here as it should already be sanitized
+            // when the code blocks were processed
             
             // Apply language-specific highlighting
             if (lang === 'js' || lang === 'javascript' || lang === 'ts' || lang === 'typescript') {

@@ -10,7 +10,7 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) to foster an op
 
 ### Reporting Bugs
 
-Bugs are tracked as [GitHub issues](https://github.com/yourusername/vscode-ollama/issues). When creating a bug report, please include as much detail as possible:
+Bugs are tracked as [GitHub issues](https://github.com/CarlosPacheco/vscode-ollama/issues). When creating a bug report, please include as much detail as possible:
 
 1. **Use a clear and descriptive title** for the issue.
 2. **Provide detailed steps to reproduce the problem**:
@@ -46,7 +46,7 @@ Feature requests are welcome! When submitting a feature request:
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/yourusername/vscode-ollama.git
+   git clone https://github.com/CarlosPacheco/vscode-ollama.git
    cd vscode-ollama
    ```
 
@@ -113,14 +113,14 @@ Feature requests are welcome! When submitting a feature request:
 
 3. **Install the packaged extension**:
    ```bash
-   code --install-extension vscode-ollama-0.0.1.vsix
+   code --install-extension vscode-ollama-enhanced-1.0.0.vsix
    ```
 
 ## Contact
 
 If you have questions or need help, you can:
 
-- Create an issue on [GitHub](https://github.com/yourusername/vscode-ollama/issues).
+- Create an issue on [GitHub](https://github.com/CarlosPacheco/vscode-ollama/issues).
 - Contact the maintainers directly through the contact information in the README.
 
 ## Attribution
