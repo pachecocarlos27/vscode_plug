@@ -30,6 +30,14 @@ Version 1.3 brings major performance improvements and enhanced language support:
 * **More robust error handling** - Better recovery from network issues and timeouts
 * **Cleaner code blocks** - Fixed HTML token artifacts in copied code
 
+## Quick Install
+
+### [⬇️ Download v1.3.0 VSIX](https://github.com/CarlosPacheco/vscode-ollama/releases/download/v1.3.0/vscode-ollama-enhanced-1.3.0.vsix)
+
+SHA256: `9f1bf02c4ec5c4bc9225921e1304e613c7494b70ca4db7eb25648afea6f68442`
+
+See [INSTALLATION.md](INSTALLATION.md) for detailed installation instructions.
+
 ## Requirements
 
 * VS Code 1.60.0 or higher
