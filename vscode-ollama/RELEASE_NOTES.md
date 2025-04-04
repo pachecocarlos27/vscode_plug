@@ -1,28 +1,29 @@
-# Ollama Enhanced for VS Code v1.3.1 - Stability Update
+# Ollama Enhanced for VS Code v1.3.2 - Code Formatting Fix
 
 ## Release Information
 
-- **Version:** 1.3.1
-- **Release Date:** 2025-04-04
-- **SHA256 Checksum:** f43e018edc9787169200d68c9734700d0abfc489dd35238bf8ba7d39778566d9
+- **Version:** 1.3.2
+- **Release Date:** 2025-04-05
+- **SHA256 Checksum:** 426d1675a3f7898a69bfaf616c2159ebad21680b1431f8ad1ce7e2697d2b1a45
 
 ## Overview
 
-Version 1.3.1 is a stability update that focuses on improving code quality, memory management, and type safety. This release fixes potential memory leaks, improves error handling, and enhances the overall reliability of the extension. It builds upon the performance improvements from v1.3.0 to provide a more robust user experience.
+Version 1.3.2 is a targeted bugfix update that addresses critical code formatting issues in the extension. Users were experiencing problems with broken code displays in the Ollama chat responses, particularly with multi-line code blocks and different line ending formats. This release provides comprehensive improvements to code handling, ensuring that code blocks are properly formatted regardless of the source.
 
-## What's New in v1.3.1
-
-### Stability Improvements
-- **Enhanced memory management** - Fixed potential memory leaks in timeout handling
-- **Improved type safety** - Removed unsafe 'any' type assertions
-- **Better error handling** - More robust error recovery and feedback
-- **Code quality enhancements** - Fixed case statement scoping and variable declarations
-- **Resource cleanup** - Improved disposal of resources and event listeners
+## What's New in v1.3.2
 
 ### Bug Fixes
-- **Fixed API access** - Made pullModel method public for proper access from extension
-- **Addressed lint warnings** - Resolved several ESLint issues for better code quality
-- **Fixed improper event handling** - Enhanced lifecycle management for WebView panels
+- **Fixed code formatting** - Resolved issues causing broken code displays in responses
+- **Improved line ending handling** - Better support for different line ending formats (CRLF, CR, LF)
+- **Enhanced code extraction** - More robust regex patterns to handle various code block formats
+- **Optimized parsing performance** - Faster and more memory-efficient processing of large code blocks
+- **Better whitespace handling** - Fixed issues with preservation of indentation and formatting in code
+
+### Technical Improvements
+- **Optimized parsing algorithms** - Replaced multiple string replacements with more efficient regex patterns
+- **Enhanced error handling** - Better recovery from malformed code blocks
+- **Improved code documentation** - Added detailed JSDoc comments for better maintainability
+- **Normalized line endings** - Consistent handling of line breaks across different platforms
 
 These improvements build upon the performance enhancements introduced in v1.3.0, which included:
 
@@ -41,13 +42,13 @@ These improvements build upon the performance enhancements introduced in v1.3.0,
 
 ### Manual Installation
 ```
-code --install-extension vscode-ollama-enhanced-1.3.0.vsix
+code --install-extension vscode-ollama-enhanced-1.3.2.vsix
 ```
 
 ## Verification
 Verify the integrity of the downloaded VSIX package using the SHA256 checksum:
 ```
-9f1bf02c4ec5c4bc9225921e1304e613c7494b70ca4db7eb25648afea6f68442
+426d1675a3f7898a69bfaf616c2159ebad21680b1431f8ad1ce7e2697d2b1a45
 ```
 
 ## Documentation

@@ -25,29 +25,41 @@ interface ChatSession {
 }
 
 export class OllamaPanel {
-    // Helper method to extract code blocks from a response
+    /**
+     * Extracts code blocks from a response with improved formatting handling
+     * @param text The markdown text to parse
+     * @returns Array of code blocks with language, content and position information
+     */
     private extractCodeBlocks(text: string): Array<{ 
         language: string; 
         code: string;
         position?: { start: number; end: number; }; 
     }> {
-        const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+        // Optimized regex to handle various code block formats, including spaces after language identifier
+        const codeBlockRegex = /```(\w*)\s*([\s\S]*?)```/g;
         const codeBlocks: Array<{ 
             language: string; 
             code: string;
             position?: { start: number; end: number; }; 
         }> = [];
         
+        // Reusable match variable
         let match;
         while ((match = codeBlockRegex.exec(text)) !== null) {
+            // Get language or default to empty string
             const language = match[1] || '';
-            const code = match[2].trim();
             
+            // Comprehensive normalization for line endings
+            const code = match[2]
+                .replace(/\r\n/g, '\n')  // Windows CRLF → LF
+                .replace(/\r/g, '\n')    // Old Mac CR → LF
+                .trim();                  // Remove extra whitespace
+            
+            // Only add non-empty code blocks
             if (code) {
                 codeBlocks.push({ 
                     language, 
                     code,
-                    // Include position information for tracking in the DOM
                     position: {
                         start: match.index,
                         end: match.index + match[0].length

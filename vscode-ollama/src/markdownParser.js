@@ -52,30 +52,25 @@ function parseMarkdownImpl(text) {
     }
     
     // Process code blocks with enhanced formatting
+    // Optimized regex to handle different code block formats - more permissive with spacing
     let parsed = text.replace(/```(\w*)\s*([\s\S]*?)```/g, function(match, language, code) {
         const lang = language || '';
-        const displayLang = lang ? lang : 'text';
+        const displayLang = lang || 'text';
         
-        // Process code to add line numbers
-        const codeLines = code.trim().split('\n');
-        let lineNumberedCode = '';
+        // Normalize line endings and handle whitespace consistently
+        const normalizedCode = code.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
         
-        codeLines.forEach((line, index) => {
-            // Escape HTML
-            const escapedLine = line.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            
-            // Strip any existing tokens/formatting from the line completely
-            const cleanLine = escapedLine
-                .replace(/<span[^>]*class="token[^"]*"[^>]*>|<\/span>/g, '')  // Remove all token spans thoroughly
-                .replace(/<div[^>]*class="line"[^>]*>|<\/div>/g, '')         // Remove any line divs
-                .replace(/data-line-number="[^"]*"/g, '')                     // Remove line numbers
-                .replace(/"token [^"]+"/g, '')                               // Remove token classes
-                .replace(/class="[^"]*"/g, '');                              // Remove any classes
-            
-            // Wrap each line in a div with class="line" for line numbers and add data-line-number for identification
-            // Ensure the cleanLine is properly escaped before insertion
-            lineNumberedCode += `<div class="line" data-line-number="${index+1}">${cleanLine}</div>`;
-        });
+        // Process code to add line numbers - using map for better performance
+        const lineNumberedCode = normalizedCode.split('\n')
+            .map((line, index) => {
+                // Escape HTML and clean in a single pass for better performance
+                const cleanLine = line
+                    .replace(/[<>&]/g, c => c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&amp;')
+                    .replace(/<\/?(?:span|div)[^>]*>|data-(?:line-number|language)="[^"]*"|"token[^"]*"|class="[^"]*"/g, '');
+                
+                return `<div class="line" data-line-number="${index+1}">${cleanLine}</div>`;
+            })
+            .join('');
         
         // Return enhanced code block with language label
         return `<pre data-language="${displayLang}"><code class="language-${lang}">${lineNumberedCode}</code></pre>`;

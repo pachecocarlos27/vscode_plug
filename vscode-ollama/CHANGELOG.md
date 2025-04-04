@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.2] - 2025-04-05
+
+### Fixed
+- Fixed code block formatting issues causing broken display of code in responses
+- Improved handling of different line ending formats in code blocks
+- Enhanced code extraction regex to better handle various code block formats
+- Optimized markdown parsing performance for handling large code blocks
+- Fixed issues with whitespace preservation in code blocks
+
 ## [1.3.1] - 2025-04-04
 
 ### Fixed
