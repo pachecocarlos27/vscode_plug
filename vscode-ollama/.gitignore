@@ -2,6 +2,7 @@
 node_modules/
 .pnp/
 .pnp.js
+jspm_packages/
 
 # Build directory
 dist/
@@ -9,6 +10,11 @@ out/
 build/
 lib/
 *.vsix
+
+# Production build and release files
+release-builds/
+extension-*.zip
+.module-cache
 
 # Debug logs
 npm-debug.log*
@@ -51,3 +57,17 @@ Thumbs.db
 # Miscellaneous
 .tmp/
 temp/
+scratch/
+.cache/
+tmp/
+
+# Local development files
+local-dev/
+*-local.*
+.history/
+.vscode-test-web/
+**/.rollup.cache/
+
+# OS specific
+.directory
+*~
