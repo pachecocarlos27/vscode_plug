@@ -1,27 +1,34 @@
-# Ollama Enhanced for VS Code v1.1.0 - Production Release
+# Ollama Enhanced for VS Code v1.3.0 - Performance Update
 
 ## Release Information
 
-- **Version:** 1.1.0
-- **Release Date:** 2025-04-03
-- **SHA256 Checksum:** d6a5f68d9233c8c5763d3748970e7ac14cd7b06c296f552df02213cf1987a1bd
+- **Version:** 1.3.0
+- **Release Date:** 2025-04-04
+- **SHA256 Checksum:** 9f1bf02c4ec5c4bc9225921e1304e613c7494b70ca4db7eb25648afea6f68442
 
 ## Overview
 
-This release focuses on security improvements and package optimization, combining the main and embedded extensions into a single streamlined package while addressing important security vulnerabilities.
+Version 1.3.0 is a major performance update focused on improving response time, language support, and robustness. This release enhances the streaming response capabilities with up to 50% faster performance, adds automatic language detection for model selection, and significantly improves timeout handling for longer responses.
 
 ## What's New
 
-### Security Enhancements
-- Fixed SSRF (Server-Side Request Forgery) vulnerabilities in Axios dependencies
-- Fixed Cross-Site Request Forgery vulnerabilities in Axios dependencies
-- Updated all Axios dependencies to secure version 1.6.7
+### New Features
+- **Automatic language detection** - Extension now intelligently selects the best model based on your current programming language
+- **Dynamic token allocation** - Smarter context management that prioritizes relevant code
+- **Extended response support** - Increased maximum generation time from 45s to 20 minutes for comprehensive answers
+- **Warning notifications** - New proactive notifications when approaching timeout limits
 
-### Performance Optimizations
-- Combined main and embedded extensions into a single optimized package
-- Reduced package size from 25MB to 1.5MB (94% reduction) for faster installation and loading
-- Streamlined build process to exclude unnecessary files
-- Improved overall package structure for better maintainability
+### Performance Improvements
+- **50% faster streaming** - Significantly improved response time for streaming text generation
+- **Enhanced syntax highlighting** - Support for 12+ programming languages with improved token handling
+- **Better memory management** - More efficient handling of large codebases and project files
+- **Smarter context handling** - Optimized token usage for including more relevant project context
+
+### Fixes and Stability
+- **Fixed HTML token artifacts** - Cleaner code blocks with improved HTML sanitization
+- **Improved error recovery** - Better handling of network timeouts and connection issues
+- **Reset timeout handling** - Extended inactivity timeout from 30s to 60s for slower models
+- **Increased default timeout** - Default timeout setting increased from 90s to 300s (5 minutes)
 
 ## Installation
 
@@ -33,13 +40,13 @@ This release focuses on security improvements and package optimization, combinin
 
 ### Manual Installation
 ```
-code --install-extension vscode-ollama-enhanced-1.1.0.vsix
+code --install-extension vscode-ollama-enhanced-1.3.0.vsix
 ```
 
 ## Verification
 Verify the integrity of the downloaded VSIX package using the SHA256 checksum:
 ```
-d6a5f68d9233c8c5763d3748970e7ac14cd7b06c296f552df02213cf1987a1bd
+9f1bf02c4ec5c4bc9225921e1304e613c7494b70ca4db7eb25648afea6f68442
 ```
 
 ## Documentation

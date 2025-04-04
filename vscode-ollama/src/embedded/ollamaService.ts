@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AxiosError } from 'axios';
+// Import Axios for API calls
 import * as vscode from 'vscode';
 import * as os from 'os';
 import * as child_process from 'child_process';
@@ -225,10 +225,10 @@ export class OllamaService {
             const timeoutId = setTimeout(() => controller.abort(), 1800000); // 30-minute timeout for very large models
             
             // Track download stats
-            let startTime = Date.now();
+            const startTime = Date.now();
             let lastReportTime = startTime;
             let lastBytes = 0;
-            let totalDownloaded = 0;
+            // Used for calculating download speed
             let downloadSpeed = 0;
             let estimatedTimeRemaining = '';
             
@@ -645,7 +645,7 @@ export class OllamaService {
         
         // Initialize token tracking
         let tokenCount = 0;
-        let streamStartTime = Date.now();
+        const streamStartTime = Date.now();
         let lastProgressTime = streamStartTime;
         
         try {
@@ -688,11 +688,11 @@ export class OllamaService {
                 onChunk(`\n\n_Still thinking..._`);
             }, 5000);
             
-            // Set a timeout for the overall request (2 minutes)
+            // Set a timeout for the overall request (20 minutes)
             const requestTimeoutId = setTimeout(() => {
                 controller.abort();
-                console.log("Request timed out after 2 minutes");
-            }, 120000);
+                console.log("Request timed out after 20 minutes");
+            }, 1200000); // Increased to 20 minutes
             
             const response = await axios.post(
                 `${this.baseUrl}/api/generate`, 
@@ -700,7 +700,7 @@ export class OllamaService {
                 {
                     responseType: 'stream',
                     signal: controller.signal,
-                    timeout: 120000, // 2-minute timeout as backup
+                    timeout: 1200000, // 20-minute timeout as backup
                     maxContentLength: Infinity,
                     headers: {
                         'Content-Type': 'application/json',
@@ -719,7 +719,7 @@ export class OllamaService {
             
             // For debugging - add an error event handler to the response data stream
             if (response.data) {
-                response.data.on('error', (err: any) => {
+                response.data.on('error', (err: Error) => {
                     console.error('Stream error:', err);
                     clearTimeout(requestTimeoutId);
                     onChunk(`\n\nError in stream: ${err.message}`);
@@ -727,25 +727,24 @@ export class OllamaService {
             }
 
             let streamEnded = false;
-            let lastChunkTime = Date.now();
             let noActivityTimeout: NodeJS.Timeout | null = null;
             
             // Set up timeout monitoring for stream inactivity
             const resetActivityTimeout = () => {
-                lastChunkTime = Date.now();
+                // Update last activity timestamp
                 
                 if (noActivityTimeout) {
                     clearTimeout(noActivityTimeout);
                 }
                 
-                // If no activity for 30 seconds, consider it stuck
+                // If no activity for 60 seconds, consider it stuck
                 noActivityTimeout = setTimeout(() => {
-                    console.warn("No activity on stream for 30 seconds, considering it stuck");
+                    console.warn("No activity on stream for 60 seconds, considering it stuck");
                     if (!streamEnded) {
                         onChunk("\n\n_Stream appears to be stuck. The model may have encountered an issue._");
                         endStream();
                     }
-                }, 30000);
+                }, 60000); // Increased from 30 to 60 seconds
             };
             
             const endStream = () => {

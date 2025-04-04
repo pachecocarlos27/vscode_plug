@@ -1,4 +1,4 @@
-# Ollama Enhanced for VS Code (v1.0)
+# Ollama Enhanced for VS Code (v1.3)
 
 Run [Ollama](https://ollama.ai) models directly from VS Code for AI-powered code editing, analysis, and chat - now with built-in Ollama for easier setup! No external installation required.
 
@@ -16,20 +16,19 @@ Run [Ollama](https://ollama.ai) models directly from VS Code for AI-powered code
 * **Privacy focused** - All processing happens locally on your machine
 * **Compatible with all Ollama models** - Works with Llama, Mistral, Phi, Gemma, and more
 
-## What's New in Version 1.0
+## What's New in Version 1.3
 
-Version 1.0 marks our official stable release with significant enhancements:
+Version 1.3 brings major performance improvements and enhanced language support:
 
-* **Zero installation required** - Get started immediately without installing Ollama
-* **Pre-packaged models included:**
-  * **DeepSeek Coder V2** - Default model optimized for coding tasks
-  * **Phi-3 Mini** - Microsoft's 3.8B parameter model optimized for coding tasks
-  * **TinyLlama** - Compact 1.1B parameter model for quick responses
-* **Smart mode switching** - Seamlessly switches between system and embedded Ollama
-* **Save generated code as files** - Instantly save code to your project with smart directory detection
-* **Complete offline operation** - Works without internet connection
-* **Cross-platform compatibility** - Full support for Windows, macOS, and Linux
-* **Clean, distraction-free UI** - Streamlined interface that integrates with VS Code's native theme
+* **Performance boost** - 50% faster streaming responses for smoother interactions
+* **DeepSeek Coder V2 optimization** - Improved integration with the default coding model 
+* **Automatic language detection** - Extension now selects the best model based on your current language
+* **Extended timeout handling** - Support for longer responses up to 20 minutes
+* **Improved memory management** - Better handling of larger codebases and projects
+* **Enhanced syntax highlighting** - Support for 12+ programming languages
+* **Smarter context handling** - Dynamic token allocation for more efficient context management
+* **More robust error handling** - Better recovery from network issues and timeouts
+* **Cleaner code blocks** - Fixed HTML token artifacts in copied code
 
 ## Requirements
 
@@ -137,7 +136,7 @@ The extension offers three operation modes:
 * `ollamaEnhanced.apiUrl` - System Ollama API URL (default: http://localhost:11434)
 * `ollamaEnhanced.temperature` - Temperature for generation (0.0-2.0, default: 0.7)
 * `ollamaEnhanced.maxResponseTokens` - Max tokens in responses (default: 4096)
-* `ollamaEnhanced.requestTimeout` - Timeout for requests in seconds (default: 90)
+* `ollamaEnhanced.requestTimeout` - Timeout for requests in seconds (default: 300, max: 1200)
 
 ### Embedded Ollama Settings
 
@@ -190,6 +189,18 @@ This code isn't working correctly. It should [expected behavior] but instead it 
 ## Release Notes
 
 See [CHANGELOG.md](CHANGELOG.md) for all updates and changes.
+
+### 1.3.0 - Performance Update (April 2025)
+
+- **NEW:** Automatic language detection for smart model selection
+- **NEW:** Support for extended response generation (up to 20 minutes)
+- **NEW:** Dynamic token allocation for improved context handling
+- **IMPROVED:** 50% faster streaming response performance
+- **IMPROVED:** Enhanced syntax highlighting for 12+ languages
+- **IMPROVED:** Better memory management for large codebases
+- **IMPROVED:** More robust error handling and recovery
+- **FIXED:** HTML token artifacts in copied code
+- **FIXED:** Various stability and performance issues
 
 ### 1.0.0 - Stable Release (April 2025)
 

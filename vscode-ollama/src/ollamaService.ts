@@ -401,7 +401,7 @@ export class OllamaService {
                 }
                 
                 const models = tagsResponse.data.models;
-                const modelExists = models.some((m: any) => m.name === modelName);
+                const modelExists = models.some((m: OllamaModel) => m.name === modelName);
                 
                 // Update model list cache
                 this.modelListCache = { models, timestamp: Date.now() };
@@ -706,7 +706,7 @@ export class OllamaService {
             const startTime = Date.now();
             let lastReportTime = startTime;
             let lastBytes = 0;
-            let totalDownloaded = 0;
+            // Used for speed calculations
             let downloadSpeed = 0;
             let estimatedTimeRemaining = '';
             
@@ -1180,20 +1180,28 @@ export class OllamaService {
                 
                 // Wait for stream completion
                 await new Promise<void>((resolve, reject) => {
+                    // Set up warning for approaching timeout
+                    const warningTimeout = setTimeout(() => {
+                        console.log('Timeout warning');
+                        onChunk(`\n\n_Note: Response is approaching the maximum allowed length. If cut off, try increasing the timeout in settings._`);
+                    }, Math.min(960000, timeoutSeconds * 1000 * 0.8)); // Warning at 80% of timeout (16 minutes for 20 minute max)
+                    
                     // Set up hard timeout
                     const hardTimeout = setTimeout(() => {
                         console.log('Hard timeout reached');
-                        onChunk(`\n\n_Maximum streaming time exceeded. The model may be generating too much content._`);
+                        onChunk(`\n\n_Maximum streaming time exceeded. The model may be generating too much content. You can increase the timeout in settings (File > Preferences > Settings > Extensions > Ollama)._`);
                         resolve();
-                    }, Math.min(45000, timeoutSeconds * 1000));
+                    }, Math.min(1200000, timeoutSeconds * 1000)); // Increased to 1200s (20 minutes)
                     
                     // Set up event handlers
                     response.data.on('end', () => {
+                        clearTimeout(warningTimeout);
                         clearTimeout(hardTimeout);
                         resolve();
                     });
                     
                     response.data.on('error', (err: Error) => {
+                        clearTimeout(warningTimeout);
                         clearTimeout(hardTimeout);
                         reject(err);
                     });
@@ -1224,7 +1232,7 @@ export class OllamaService {
         return prompt;
     }
     
-    private formatStreamingError(error: any, timeoutSeconds: number): string {
+    private formatStreamingError(error: unknown, timeoutSeconds: number): string {
         if (axios.isAxiosError(error)) {
             const axiosError = error as AxiosError;
             

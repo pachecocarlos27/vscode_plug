@@ -85,10 +85,15 @@ function extractCleanCodeFromBlock(codeBlock) {
         
         // Remove all HTML tags to get clean text
         let cleanCode = originalHtml
-            .replace(/<div[^>]*class="line"[^>]*>/g, '')  // Remove line div starts with any attributes
-            .replace(/<\/div>/g, '\n')           // Replace line div ends with newlines
-            .replace(/<span[^>]*class="token[^"]*"[^>]*>|<\/span>/g, '')  // Remove all token spans thoroughly
-            .replace(/&lt;/g, '<')               // Replace HTML entities
+            .replace(/<div[^>]*class="line"[^>]*>/g, '')     // Remove line div starts with any attributes
+            .replace(/<\/div>/g, '\n')                       // Replace line div ends with newlines
+            .replace(/<span[^>]*class="token[^"]*"[^>]*>|<\/span>/g, '')  // Remove all token spans
+            .replace(/"token [^"]+"/g, '')                   // Remove token attr-name references
+            .replace(/class="line"/g, '')                    // Remove line class attributes
+            .replace(/data-line-number="[^"]*"/g, '')        // Remove line number attributes
+            .replace(/class="[^"]*"/g, '')                   // Remove all remaining class attributes
+            .replace(/"token attr-name">/g, '')              // Remove token attr-name (without class=)
+            .replace(/&lt;/g, '<')                           // Replace HTML entities
             .replace(/&gt;/g, '>')
             .replace(/&amp;/g, '&')
             .replace(/&quot;/g, '"')
@@ -96,13 +101,19 @@ function extractCleanCodeFromBlock(codeBlock) {
         
         console.log("Cleaned code (first attempt):", cleanCode);
         
-        // If we still have HTML issues, use a more aggressive approach
-        if (cleanCode.includes('<span') || cleanCode.includes('</span>')) {
-            // Create temporary div to handle HTML entity conversion
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = originalHtml;
-            cleanCode = tempDiv.textContent || '';
-            console.log("Using textContent fallback:", cleanCode);
+        // If we still have HTML issues, try even more aggressive cleaning
+        if (cleanCode.includes('<') && (cleanCode.includes('span') || cleanCode.includes('div') || cleanCode.includes('token'))) {
+            // First try to remove any remaining HTML tags entirely
+            cleanCode = cleanCode.replace(/<[^>]*>/g, ''); 
+            
+            // If still problematic, use DOM parsing as fallback
+            if (cleanCode.includes('<') && (cleanCode.includes('span') || cleanCode.includes('div'))) {
+                // Use DOMParser for safer HTML parsing
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(originalHtml, 'text/html');
+                cleanCode = doc.body.textContent || '';
+                console.log("Using textContent fallback:", cleanCode);
+            }
         }
         
         // Final cleanup - trim each line and ensure proper line endings

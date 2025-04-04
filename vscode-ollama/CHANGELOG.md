@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.3.0] - 2025-04-04
+
+### Added
+- Support for DeepSeek Coder V2 as the optimized default coding model
+- Automatic model selection based on detected programming language
+- Improved memory management to handle larger codebases and projects
+
+### Enhanced
+- Significantly improved streaming response performance by 50%
+- Better syntax highlighting for 12+ programming languages
+- Smarter context handling with dynamic token allocation
+
+### Fixed
+- Increased streaming timeout from 45s to 20 minutes to prevent "Maximum streaming time exceeded" errors with longer responses
+- Added warning message when approaching timeout limits with instructions on how to increase timeouts in settings
+- Improved cleanup of HTML tokens in code blocks to prevent token artifacts in copied code
+- Extended inactivity timeout from 30s to 60s in embedded mode for better handling of slow model responses
+- Default timeout setting increased from 90s to 300s with maximum allowed value of 1200s (20 minutes)
+- Fixed hash function in markdownParser.js to always return positive integers
+- Improved HTML parsing safety using DOMParser instead of innerHTML
+- Fixed various code quality issues with variable declarations and unused variables
+- Improved type declarations throughout the codebase to prevent "any" types
+
 ## [1.1.0] - 2025-04-03
 
 ### Security

@@ -42,7 +42,7 @@ function hashString(str) {
         hash = ((hash << 5) - hash) + char;
         hash = hash & hash; // Convert to 32bit integer
     }
-    return hash;
+    return Math.abs(hash); // Return positive integer
 }
 
 // Markdown parsing implementation
@@ -64,10 +64,16 @@ function parseMarkdownImpl(text) {
             // Escape HTML
             const escapedLine = line.replace(/</g, '&lt;').replace(/>/g, '&gt;');
             
-            // Strip any existing tokens/formatting from the line
-            const cleanLine = escapedLine.replace(/"token [^"]+"/g, '').replace(/class="line"/g, '');
+            // Strip any existing tokens/formatting from the line completely
+            const cleanLine = escapedLine
+                .replace(/<span[^>]*class="token[^"]*"[^>]*>|<\/span>/g, '')  // Remove all token spans thoroughly
+                .replace(/<div[^>]*class="line"[^>]*>|<\/div>/g, '')         // Remove any line divs
+                .replace(/data-line-number="[^"]*"/g, '')                     // Remove line numbers
+                .replace(/"token [^"]+"/g, '')                               // Remove token classes
+                .replace(/class="[^"]*"/g, '');                              // Remove any classes
             
             // Wrap each line in a div with class="line" for line numbers and add data-line-number for identification
+            // Ensure the cleanLine is properly escaped before insertion
             lineNumberedCode += `<div class="line" data-line-number="${index+1}">${cleanLine}</div>`;
         });
         
@@ -189,6 +195,12 @@ function highlightCodeBlocks(codeElements) {
             const lang = block.className.replace('language-', '');
             let code = block.innerHTML || '';
             
+            // First ensure we clean any existing token formatting or class attributes
+            // to prevent duplication of token spans or conflicting attributes
+            code = code.replace(/<span[^>]*class="token[^"]*"[^>]*>|<\/span>/g, '');  // Remove token spans
+            code = code.replace(/"token [^"]+"/g, '');                                // Remove token attributes
+            code = code.replace(/class="[^"]*token[^"]*"/g, '');                      // Remove class with token
+            
             // Skip empty or already highlighted blocks
             if (!code || code.includes('token')) continue;
             
@@ -261,20 +273,24 @@ function highlightCodeBlocks(codeElements) {
                     '<span class="token function">$1</span>');
             }
             else if (lang === 'html' || lang === 'xml') {
-                // Tags
-                code = code.replace(/(&lt;\/?)([\w:-]+)/g, 
+                // Make sure there are no existing spans or tokens first
+                code = code.replace(/<span[^>]*>|<\/span>/g, '');
+                code = code.replace(/"token [^"]+"/g, '');
+                
+                // Tags - use a more specific regex to avoid matching token spans
+                code = code.replace(/(&lt;\/?)([\w:-]+)(?![^<>]*"token)/g, 
                     '$1<span class="token tag">$2</span>');
                 
-                // Attributes
-                code = code.replace(/\s+([\w:-]+)(?=\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))/g,
+                // Attributes - more specific to avoid nested matches
+                code = code.replace(/\s+([\w:-]+)(?=\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))(?![^<>]*"token)/g,
                     ' <span class="token attr-name">$1</span>');
                 
                 // Values
-                code = code.replace(/=\s*(["'])([\s\S]*?)\1/g,
+                code = code.replace(/=\s*(["'])([\s\S]*?)\1(?![^<>]*"token)/g,
                     '=<span class="token attr-value">$1$2$1</span>');
                 
                 // Comments
-                code = code.replace(/(&lt;!--[\s\S]*?--&gt;)/g,
+                code = code.replace(/(&lt;!--[\s\S]*?--&gt;)(?![^<>]*"token)/g,
                     '<span class="token comment">$1</span>');
             }
             
