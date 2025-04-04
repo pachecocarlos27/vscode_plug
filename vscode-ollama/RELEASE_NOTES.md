@@ -1,34 +1,35 @@
-# Ollama Enhanced for VS Code v1.3.0 - Performance Update
+# Ollama Enhanced for VS Code v1.3.1 - Stability Update
 
 ## Release Information
 
-- **Version:** 1.3.0
+- **Version:** 1.3.1
 - **Release Date:** 2025-04-04
-- **SHA256 Checksum:** 9f1bf02c4ec5c4bc9225921e1304e613c7494b70ca4db7eb25648afea6f68442
+- **SHA256 Checksum:** 3f618a8756da735d5e75b392408e7168831c80e7f05e6f547c445e671c010cff
 
 ## Overview
 
-Version 1.3.0 is a major performance update focused on improving response time, language support, and robustness. This release enhances the streaming response capabilities with up to 50% faster performance, adds automatic language detection for model selection, and significantly improves timeout handling for longer responses.
+Version 1.3.1 is a stability update that focuses on improving code quality, memory management, and type safety. This release fixes potential memory leaks, improves error handling, and enhances the overall reliability of the extension. It builds upon the performance improvements from v1.3.0 to provide a more robust user experience.
 
-## What's New
+## What's New in v1.3.1
 
-### New Features
-- **Automatic language detection** - Extension now intelligently selects the best model based on your current programming language
-- **Dynamic token allocation** - Smarter context management that prioritizes relevant code
-- **Extended response support** - Increased maximum generation time from 45s to 20 minutes for comprehensive answers
-- **Warning notifications** - New proactive notifications when approaching timeout limits
+### Stability Improvements
+- **Enhanced memory management** - Fixed potential memory leaks in timeout handling
+- **Improved type safety** - Removed unsafe 'any' type assertions
+- **Better error handling** - More robust error recovery and feedback
+- **Code quality enhancements** - Fixed case statement scoping and variable declarations
+- **Resource cleanup** - Improved disposal of resources and event listeners
 
-### Performance Improvements
-- **50% faster streaming** - Significantly improved response time for streaming text generation
-- **Enhanced syntax highlighting** - Support for 12+ programming languages with improved token handling
-- **Better memory management** - More efficient handling of large codebases and project files
-- **Smarter context handling** - Optimized token usage for including more relevant project context
+### Bug Fixes
+- **Fixed API access** - Made pullModel method public for proper access from extension
+- **Addressed lint warnings** - Resolved several ESLint issues for better code quality
+- **Fixed improper event handling** - Enhanced lifecycle management for WebView panels
 
-### Fixes and Stability
-- **Fixed HTML token artifacts** - Cleaner code blocks with improved HTML sanitization
-- **Improved error recovery** - Better handling of network timeouts and connection issues
-- **Reset timeout handling** - Extended inactivity timeout from 30s to 60s for slower models
-- **Increased default timeout** - Default timeout setting increased from 90s to 300s (5 minutes)
+These improvements build upon the performance enhancements introduced in v1.3.0, which included:
+
+- 50% faster streaming response times
+- Automatic language detection for model selection
+- Extended timeout support (up to 20 minutes)
+- Enhanced syntax highlighting for 12+ programming languages
 
 ## Installation
 

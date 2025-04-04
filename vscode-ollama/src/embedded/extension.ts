@@ -69,8 +69,9 @@ export function activate(context: vscode.ExtensionContext) {
             try {
                 progress.report({ message: 'Downloading and installing model...' });
                 
-                // Use private method through any type
-                await (ollamaService as any).pullModel(modelName);
+                // Call the pullModel method
+                // This requires proper typing in the service class
+                await ollamaService.pullModel(modelName);
                 
                 vscode.window.showInformationMessage(`Successfully installed ${modelName} model!`);
             } catch (error) {

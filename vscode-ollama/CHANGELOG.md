@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.1] - 2025-04-04
+
+### Fixed
+- Fixed potential memory leaks in timeout handling
+- Improved type safety by removing unsafe 'any' type assertions
+- Fixed case statement scoping in event handlers
+- Made pullModel method public for proper API access
+- Enhanced error handling and resource cleanup
+- Fixed several lint warnings for better code quality
+
 ## [1.3.0] - 2025-04-04
 
 ### Added

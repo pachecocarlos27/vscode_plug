@@ -1,4 +1,4 @@
-# Ollama Enhanced for VS Code (v1.3)
+# Ollama Enhanced for VS Code (v1.3.1)
 
 Run [Ollama](https://ollama.ai) models directly from VS Code for AI-powered code editing, analysis, and chat - now with built-in Ollama for easier setup! No external installation required.
 
@@ -16,25 +16,30 @@ Run [Ollama](https://ollama.ai) models directly from VS Code for AI-powered code
 * **Privacy focused** - All processing happens locally on your machine
 * **Compatible with all Ollama models** - Works with Llama, Mistral, Phi, Gemma, and more
 
-## What's New in Version 1.3
+## What's New in Version 1.3.1
 
-Version 1.3 brings major performance improvements and enhanced language support:
+Version 1.3.1 focuses on stability, reliability, and code quality:
+
+* **Enhanced memory management** - Fixed potential memory leaks in timeout handling
+* **Improved type safety** - Eliminated unsafe type assertions for better reliability
+* **Better error handling** - More robust error recovery and detailed feedback
+* **Code quality improvements** - Fixed variable declarations and scoping issues
+* **Resource management** - Enhanced lifecycle handling for WebView panels
+* **API refinements** - Public access to core functionality for better extensibility
+* **Addressed lint warnings** - Resolved code quality issues from static analysis
+
+These improvements build upon the performance enhancements from v1.3.0:
 
 * **Performance boost** - 50% faster streaming responses for smoother interactions
-* **DeepSeek Coder V2 optimization** - Improved integration with the default coding model 
-* **Automatic language detection** - Extension now selects the best model based on your current language
+* **Automatic language detection** - Extension selects the best model for your current language
 * **Extended timeout handling** - Support for longer responses up to 20 minutes
-* **Improved memory management** - Better handling of larger codebases and projects
 * **Enhanced syntax highlighting** - Support for 12+ programming languages
-* **Smarter context handling** - Dynamic token allocation for more efficient context management
-* **More robust error handling** - Better recovery from network issues and timeouts
-* **Cleaner code blocks** - Fixed HTML token artifacts in copied code
 
 ## Quick Install
 
-### [⬇️ Download v1.3.0 VSIX](https://github.com/CarlosPacheco/vscode-ollama/releases/download/v1.3.0/vscode-ollama-enhanced-1.3.0.vsix)
+### [⬇️ Download v1.3.1 VSIX](https://github.com/CarlosPacheco/vscode-ollama/releases/download/v1.3.1/vscode-ollama-enhanced-1.3.1.vsix)
 
-SHA256: `9f1bf02c4ec5c4bc9225921e1304e613c7494b70ca4db7eb25648afea6f68442`
+SHA256: `3f618a8756da735d5e75b392408e7168831c80e7f05e6f547c445e671c010cff`
 
 See [INSTALLATION.md](INSTALLATION.md) for detailed installation instructions.
 

@@ -244,7 +244,7 @@ export class HttpClient {
     /**
      * Make a POST request with standardized error handling and logging
      */
-    static async post<T>(url: string, data: any, options: {
+    static async post<T>(url: string, data: Record<string, unknown>, options: {
         timeout?: number,
         headers?: Record<string, string>,
         validateStatus?: (status: number) => boolean,

@@ -1,3 +1,4 @@
 # SHA256 checksums for release verification
 d6a5f68d9233c8c5763d3748970e7ac14cd7b06c296f552df02213cf1987a1bd  vscode-ollama-enhanced-1.1.0.vsix
 9f1bf02c4ec5c4bc9225921e1304e613c7494b70ca4db7eb25648afea6f68442  vscode-ollama-enhanced-1.3.0.vsix
+3f618a8756da735d5e75b392408e7168831c80e7f05e6f547c445e671c010cff  vscode-ollama-enhanced-1.3.1.vsix

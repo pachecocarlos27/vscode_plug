@@ -34,7 +34,7 @@ export class OllamaPanel {
         this.panel.webview.onDidReceiveMessage(
             async (message) => {
                 switch (message.command) {
-                    case 'sendPrompt':
+                    case 'sendPrompt': {
                         if (!this.currentModel) {
                             vscode.window.showErrorMessage('Please select a model first');
                             return;
@@ -80,13 +80,14 @@ export class OllamaPanel {
                         }
                         break;
                         
-                    case 'getProjectContext':
+                    case 'getProjectContext': {
                         const context = await this.getProjectContext();
                         this.panel.webview.postMessage({
                             command: 'projectContext',
                             context
                         });
                         break;
+                    }
                         
                     case 'applyEdit':
                         await this.applyEdit(message.filePath, message.edit);
@@ -96,13 +97,14 @@ export class OllamaPanel {
                         await this.createFile(message.filePath, message.content);
                         break;
                         
-                    case 'refreshContext':
+                    case 'refreshContext': {
                         const refreshedContext = await this.getProjectContext();
                         this.panel.webview.postMessage({
                             command: 'projectContext',
                             context: refreshedContext
                         });
                         break;
+                    }
                         
                     case 'openFile':
                         await this.openFile(message.filePath, message.selection);

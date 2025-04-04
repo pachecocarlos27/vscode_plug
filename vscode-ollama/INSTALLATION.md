@@ -1,6 +1,6 @@
-# Installation Guide for Ollama Enhanced v1.3.0
+# Installation Guide for Ollama Enhanced v1.3.1
 
-This guide provides instructions for installing Ollama Enhanced for VS Code v1.3.0.
+This guide provides instructions for installing Ollama Enhanced for VS Code v1.3.1.
 
 ## Installation Methods
 
@@ -17,12 +17,12 @@ This guide provides instructions for installing Ollama Enhanced for VS Code v1.3
 If you prefer to install the extension manually:
 
 1. Download the VSIX file from:
-   - [GitHub Releases](https://github.com/CarlosPacheco/vscode-ollama/releases/tag/v1.3.0)
-   - Direct download: [vscode-ollama-enhanced-1.3.0.vsix](https://github.com/CarlosPacheco/vscode-ollama/releases/download/v1.3.0/vscode-ollama-enhanced-1.3.0.vsix)
+   - [GitHub Releases](https://github.com/CarlosPacheco/vscode-ollama/releases/tag/v1.3.1)
+   - Direct download: [vscode-ollama-enhanced-1.3.1.vsix](https://github.com/CarlosPacheco/vscode-ollama/releases/download/v1.3.1/vscode-ollama-enhanced-1.3.1.vsix)
 
 2. Verify the SHA256 checksum:
    ```
-   9f1bf02c4ec5c4bc9225921e1304e613c7494b70ca4db7eb25648afea6f68442  vscode-ollama-enhanced-1.3.0.vsix
+   3f618a8756da735d5e75b392408e7168831c80e7f05e6f547c445e671c010cff  vscode-ollama-enhanced-1.3.1.vsix
    ```
 
 3. Install from VS Code:
@@ -34,7 +34,7 @@ If you prefer to install the extension manually:
 
 4. Alternatively, install from the command line:
    ```
-   code --install-extension vscode-ollama-enhanced-1.3.0.vsix
+   code --install-extension vscode-ollama-enhanced-1.3.1.vsix
    ```
 
 ## Post-Installation Setup

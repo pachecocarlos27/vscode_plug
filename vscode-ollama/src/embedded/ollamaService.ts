@@ -13,6 +13,8 @@ export interface OllamaModel {
 }
 
 export class OllamaService {
+    // Make pullModel method public to avoid any casting
+
     private baseUrl: string;
     private isInstalled: boolean | null = null;
 
@@ -181,7 +183,7 @@ export class OllamaService {
         }
     }
     
-    private async pullModel(modelName: string): Promise<void> {
+    async pullModel(modelName: string): Promise<void> {
         let progressReporter: vscode.Progress<{ message?: string; increment?: number }> | null = null;
         let progressResolver: (() => void) | null = null;
         let cancelRequested = false;
