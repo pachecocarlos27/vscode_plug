@@ -1,0 +1,81 @@
+name: Release Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build extension
+        run: npm run vscode:prepublish
+        
+      - name: Package extension
+        run: npx vsce package
+      
+      - name: Generate SHA256 checksum
+        run: |
+          VSIX_FILE=$(ls *.vsix)
+          CHECKSUM=$(sha256sum $VSIX_FILE | cut -d ' ' -f 1)
+          echo "$CHECKSUM  $VSIX_FILE" >> checksums.txt
+          echo "VSIX_FILE=$VSIX_FILE" >> $GITHUB_ENV
+          echo "CHECKSUM=$CHECKSUM" >> $GITHUB_ENV
+      
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            *.vsix
+            checksums.txt
+          body: |
+            # Ollama Enhanced for VS Code ${{ github.ref_name }}
+            
+            **SHA256 Checksum:** ${{ env.CHECKSUM }}
+            
+            ## Installation
+            Download the VSIX file and install using:
+            ```
+            code --install-extension ${{ env.VSIX_FILE }}
+            ```
+            
+            See [CHANGELOG.md](CHANGELOG.md) for detailed release notes.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+  marketplace:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ false }}  # Disabled until PAT is available
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Publish to VS Code Marketplace
+        run: npx vsce publish -p ${{ secrets.VSCE_PAT }}
+        
+      - name: Publish to Open VSX Registry
+        run: npx ovsx publish -p ${{ secrets.OVSX_PAT }}
