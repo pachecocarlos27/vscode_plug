@@ -39,9 +39,19 @@ These improvements build upon the performance enhancements from v1.3.0:
 
 ### [⬇️ Download v1.3.1 VSIX](https://github.com/CarlosPacheco/vscode-ollama/releases/download/v1.3.1/vscode-ollama-enhanced-1.3.1.vsix)
 
-SHA256: `3f618a8756da735d5e75b392408e7168831c80e7f05e6f547c445e671c010cff`
+SHA256: `f43e018edc9787169200d68c9734700d0abfc489dd35238bf8ba7d39778566d9`
 
-See [INSTALLATION.md](INSTALLATION.md) for detailed installation instructions.
+To install:
+1. Download the VSIX file from the link above
+2. Open VS Code
+3. Go to Extensions view (Ctrl+Shift+X)
+4. Click "..." menu (top-right) → "Install from VSIX..."
+5. Select the downloaded file
+
+Or install from command line:
+```bash
+code --install-extension vscode-ollama-enhanced-1.3.1.vsix
+```
 
 ## Requirements
 

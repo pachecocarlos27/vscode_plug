@@ -4,7 +4,7 @@
 
 - **Version:** 1.3.1
 - **Release Date:** 2025-04-04
-- **SHA256 Checksum:** 3f618a8756da735d5e75b392408e7168831c80e7f05e6f547c445e671c010cff
+- **SHA256 Checksum:** f43e018edc9787169200d68c9734700d0abfc489dd35238bf8ba7d39778566d9
 
 ## Overview
 
