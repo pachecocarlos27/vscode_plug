@@ -1,31 +1,23 @@
-# Contributing to BCDA Client
+# Contributing
 
-First off, thank you for considering contributing to this project! 
+Thank you for your interest in contributing to this project!
 
-## How Can I Contribute?
+## How to Contribute
 
-### Reporting Bugs
-- Use the issue tracker to report bugs
-- Describe the bug in detail
-- Include steps to reproduce
-- Include expected vs actual behavior
-
-### Suggesting Enhancements
-- Use the issue tracker with the "enhancement" label
-- Provide a clear description of the enhancement
-- Explain why this would be useful
-
-### Pull Requests
-1. Fork the repo and create your branch from `main`
-2. If you've added code, add tests
-3. Ensure the test suite passes
-4. Make sure your code follows the existing style
-5. Issue that pull request!
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## Code Style
-- Follow PEP 8 for Python
-- Write clear, self-documenting code
-- Add comments for complex logic
 
-## License
-By contributing, you agree that your contributions will be licensed under the MIT License.
+- Follow the existing code style
+- Add comments for complex logic
+- Write tests for new features
+
+## Reporting Issues
+
+- Use the issue tracker
+- Provide detailed descriptions
+- Include steps to reproduce
